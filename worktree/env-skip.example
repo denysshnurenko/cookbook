@@ -1,0 +1,6 @@
+# harness: apps to skip during `env sync` when provisioning a worktree.
+# One app (service) name per line. '#' comments and blank lines are ignored.
+# Use for apps whose Secret Manager project you can't access but don't run locally.
+# Install as ~/.config/harness/env-skip
+#
+# some-api-you-cant-access

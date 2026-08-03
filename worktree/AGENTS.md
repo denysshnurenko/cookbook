@@ -146,13 +146,14 @@ Deletes: the DB container + volume + Caddy fragment, the worktree directory
 | `worktree-archive.sh` non-zero | Teardown aborted; state is as reported on stderr. Surface it, stop. |
 | Stale worktree dir, branch gone | `git worktree list` to see if git still tracks it; if not: `git worktree prune` + remove the dir — but confirm with the user first (dir contents die). |
 
-## Porting to another machine
+## Installing on a new machine
 
-Minimal set (no agterm): copy `worktree-create.sh`, `worktree-setup.sh`,
-`worktree-archive.sh`, `worktree-open-session.sh` (no-op outside agterm, but the
-procedure calls it) into `~/.config/harness/`, plus the two skills into
-`~/.claude/skills/` if Claude Code is used. Paths are hardcoded to
-`~/.config/harness/` — keep the layout or edit every reference. Dependencies: zsh,
-git, jq; docker CLI for teardown; optional: tmux (fallback), pnpm/yarn/npm
-(provisioning), agterm, solidtime (self-skips when absent). agterm hotkey setup and
-the human quick-start are in `README.md`.
+The scripts ship NEXT TO this file (public mirror: github.com/denysshnurenko/cookbooks,
+`worktree/`). Minimal set (no agterm): copy `worktree-create.sh`,
+`worktree-setup.sh`, `worktree-archive.sh`, `worktree-open-session.sh` (no-op
+outside agterm, but the procedure calls it) into `~/.config/harness/` and make them
+executable. Paths are hardcoded to `~/.config/harness/` — keep the layout or edit
+every reference. Dependencies: zsh, git, jq; docker CLI for teardown; optional: tmux
+(fallback), pnpm/yarn/npm (provisioning), agterm, solidtime (self-skips when
+absent). This file itself is the agent integration: load it as a skill or context.
+agterm hotkey setup and the human quick-start are in `README.md`.
