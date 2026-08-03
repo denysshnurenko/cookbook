@@ -93,8 +93,8 @@ fi
 # (historical plan logs, not needed per-worktree and just grows over time).
 if [[ -d "$root/.ralphex" ]]; then
   cp -R "$root/.ralphex" "$wt/.ralphex"
-  rm -rf "$wt/.ralphex/progress"
-  print "📋 copied .ralphex (skipping progress/)"
+  rm -rf "$wt/.ralphex/progress" "$wt/.ralphex/agterm-bus"
+  print "📋 copied .ralphex (skipping progress/, agterm-bus/)"
 fi
 
 # .claude/settings.local.json is git-ignored too (it holds this checkout's approved

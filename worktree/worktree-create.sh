@@ -105,8 +105,8 @@ fi
 # it so ralphex config is present. Skip progress/ (historical logs, grows over time).
 if [[ -d "$root/.ralphex" ]]; then
   cp -R "$root/.ralphex" "$wt/.ralphex"
-  rm -rf "$wt/.ralphex/progress"
-  print -u2 "📋 copied .ralphex (skipping progress/)"
+  rm -rf "$wt/.ralphex/progress" "$wt/.ralphex/agterm-bus"
+  print -u2 "📋 copied .ralphex (skipping progress/, agterm-bus/)"
 fi
 
 # .claude/settings.local.json is git-ignored too (it holds this checkout's approved
