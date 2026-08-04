@@ -1,4 +1,4 @@
-# cookbooks
+# cookbook
 
 Практичні рецепти мого dev-тулінгу — за зразком [agterm cookbook](https://github.com/umputun/agterm/tree/master/cookbook):
 кожен рецепт — самодостатня тека зі скриптами і двома доками: `README.md` (людині —

@@ -148,7 +148,7 @@ Deletes: the DB container + volume + Caddy fragment, the worktree directory
 
 ## Installing on a new machine
 
-The scripts ship NEXT TO this file (public mirror: github.com/denysshnurenko/cookbooks,
+The scripts ship NEXT TO this file (public mirror: github.com/denysshnurenko/cookbook,
 `worktree/`). Minimal set (no agterm): copy `worktree-create.sh`,
 `worktree-setup.sh`, `worktree-archive.sh`, `worktree-open-session.sh` (no-op
 outside agterm, but the procedure calls it) into `~/.config/harness/` and make them
