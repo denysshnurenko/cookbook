@@ -5,6 +5,21 @@
 set -uo pipefail
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
+# Optional defaults, so another flow can hand this one a proposal instead of duplicating it
+# (the task picker does: it knows the ticket, this script knows how to make a worktree).
+#   --branch <name>   prefill the branch prompt
+#   --base <ref>      prefill the base prompt
+# Both stay EDITABLE on purpose: a branch name generated from a ticket title is a guess, and
+# it outlives the guess as a directory, a session name and a remote ref.
+branch_default=""; base_default=""
+while (( $# )); do
+  case "$1" in
+    --branch) branch_default="${2:-}"; shift 2 ;;
+    --base)   base_default="${2:-}";   shift 2 ;;
+    *) print "🚫 unknown argument: $1"; sleep 3; exit 1 ;;
+  esac
+done
+
 root="$(git -C "${AGT_SESSION_PWD:-$PWD}" rev-parse --show-toplevel 2>/dev/null)" \
   || { print "🚫 not a git repo (open this from a repo session)"; sleep 3; exit 1; }
 cd "$root"
@@ -16,15 +31,21 @@ repo="${root:t}"
 current="$(git symbolic-ref --short -q HEAD || echo master)"
 
 print "🌱  new worktree in ${repo}\n"
-print -n "👉  branch name: "
+if [[ -n "$branch_default" ]]; then
+  print -n "👉  branch name [${branch_default}]: "
+else
+  print -n "👉  branch name: "
+fi
 read -r branch
+branch="${branch:-$branch_default}"
 [[ -n "$branch" ]] || { print "🙅 cancelled."; sleep 1; exit 1; }
 slug="${branch//\//-}"
 wt="${root:h}/${repo}.worktrees/${slug}"
 
-print -n "🌳  base branch [master]  ('.' = current '${current}'): "
+base_fallback="${base_default:-master}"
+print -n "🌳  base branch [${base_fallback}]  ('.' = current '${current}'): "
 read -r base_in
-base="${base_in:-master}"
+base="${base_in:-$base_fallback}"
 [[ "$base" == "." || "$base" == "HEAD" ]] && base="$current"
 
 if [[ -e "$wt" ]]; then print "\n💥 already exists: $wt"; sleep 3; exit 1; fi
