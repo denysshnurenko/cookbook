@@ -59,6 +59,9 @@ if [[ "$base" == "$current" ]]; then
 else
   print "\n📡 git fetch origin ${base}…"
   git fetch --quiet origin "$base" 2>/dev/null || print "   (fetch failed — using what's local)"
+  # Sweep ghost branches while we are here: local, remote gone, checked out nowhere. This is
+  # the moment they get noticed for free — see worktree-prune-ghosts.sh for the rule.
+  "$HOME/.config/harness/worktree-prune-ghosts.sh" "$root" 2>/dev/null | grep -v "no ghost" || true
   if git show-ref --verify --quiet "refs/remotes/origin/$base"; then start="origin/$base"; else start="$base"; fi
   print "🌿 git worktree add  (-b ${branch} off ${start})"
 fi

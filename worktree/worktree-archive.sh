@@ -67,5 +67,10 @@ fi
 drifted=""
 [[ "$branch" != "$orig_branch" && "$branch" != "?" ]] && drifted="$branch"
 
+# 4. sweep ghost branches (local, remote gone, checked out nowhere) — the worktree just
+# removed often leaves side branches behind (`chore/…`, `docs/…` made inside it whose PRs
+# merged); after this removal they are exactly that. Best-effort, stderr, never fatal.
+"$HOME/.config/harness/worktree-prune-ghosts.sh" "$main" 1>&2 2>/dev/null || true
+
 print -u2 "🎉 archived + removed worktree: $slug"
 print -r -- "ARCHIVED slug=${slug} branch=${orig_branch} remote=${remote} drifted=${drifted}"
