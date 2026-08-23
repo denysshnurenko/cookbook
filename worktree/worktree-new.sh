@@ -145,6 +145,14 @@ if [[ -n "$sid" ]]; then
   # worktree skill's worktree-open-session.sh). claude.fish passes the flag through
   # and still pins --session-id to this tab's uuid.
   agtermctl session type "~/.config/harness/worktree-setup.sh '${branch}'; claude --remote-control '${slug}'"$'\n' --target "$sid" 2>/dev/null
+  # PIN the conversation for the next launch, instead of relying on agterm's auto-capture.
+  # Auto-capture records a pane's foreground only at a CLEAN quit; a reboot, a crash or a
+  # power loss captures nothing, and every worktree session then comes back as a bare shell
+  # (measured three times: only explicitly pinned sessions survived). The conversation id is
+  # known right here: the claude wrapper binds a tab's first conversation to the tab's own
+  # uuid, lowercase. `--resume` on a not-yet-created conversation is rescued by the same
+  # wrapper (it creates it under that id), so pinning before claude even starts is safe.
+  agtermctl session restore "claude --resume $(printf '%s' "$sid" | tr '[:upper:]' '[:lower:]') --remote-control '${slug}'" --target "$sid" 2>/dev/null
   print "\n🎉 worktree created + session opened.\n   🧪 provisioning runs in '${slug}', then 🤖 claude starts."
 else
   print "\n🎉 worktree created at:\n   $wt\n   (couldn't auto-open a session — cd there and run: worktree-setup.sh '${branch}')"

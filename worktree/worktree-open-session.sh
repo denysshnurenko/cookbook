@@ -62,6 +62,12 @@ for _ in 1 2 3; do
 done
 
 if (( typed )); then
+  # Pin the conversation for the next launch (same rule as worktree-new.sh): auto-capture
+  # only records a foreground at a clean quit, so a reboot brings the pane back as a bare
+  # shell unless the conversation is pinned. The claude wrapper binds the tab's first
+  # conversation to the tab's own uuid (lowercase), and rescues a --resume of one that does
+  # not exist yet by creating it — so pinning before claude starts is safe.
+  agtermctl session restore "claude --resume $(printf '%s' "$sid" | tr '[:upper:]' '[:lower:]') --remote-control '${slug}'" --target "$sid" "${win_args[@]}" >/dev/null 2>&1 || true
   print -- "opened-session $sid"
   exit 0
 fi
