@@ -31,6 +31,7 @@ this file.
 | `worktree-create.sh` | `<branch> [base]` | stdout: the new worktree's **absolute path** (last line — capture it); progress on stderr. Non-zero exit = **nothing was created**: surface stderr, stop. |
 | `worktree-setup.sh` | `<branch>` | Run with **cwd inside the worktree**. Human-readable progress; non-zero exit = provisioning failed but worktree+DB exist (see Failure rules). |
 | `worktree-open-session.sh` | `<wt-path> <branch>` | ONE line on stdout: `no-agterm` \| `opened-session <id>` \| `opened-tmux <name>` \| `agterm-session-failed`. Exit 0 except on total failure. |
+| `rc-name.sh` | `<branch-slug>` | stdout: ONE line — a short Remote Control session name (ticket id first, ~30 chars). Called BY `worktree-open-session.sh`/`worktree-new.sh`; you never call it directly. |
 | `worktree-archive.sh` | `<wt-path>` | stdout: `ARCHIVED slug=<slug> branch=<orig> remote=<yes\|no> drifted=<branch-or-empty>`; progress on stderr. Non-zero exit = teardown aborted (nothing irreversible happened past the reported step). |
 
 `base` semantics in create: default `master`; literal `.` or `HEAD` = the repo's
@@ -72,7 +73,9 @@ What create does besides `git worktree add` (so you don't redo it):
    ```
    Act on the single output line:
    - `opened-session <id>` — a new agterm tab is ALREADY running provisioning +
-     `claude --remote-control '<slug>'`. **Do not provision again.** Report and done.
+     `claude --remote-control '<short name>'` (rc-name.sh: ticket id first, so a
+     mobile Remote Control list stays readable — the agterm tab keeps the full
+     branch slug). **Do not provision again.** Report and done.
    - `opened-tmux <name>` — display was locked (typical for phone / Remote Control);
      same provisioning + claude is running in a detached tmux session. **Do not
      provision again.** Tell the user: it appears in Remote Control as `<name>` after
@@ -151,8 +154,9 @@ Deletes: the DB container + volume + Caddy fragment, the worktree directory
 The scripts ship NEXT TO this file (public mirror: github.com/denysshnurenko/cookbook,
 `worktree/`). Minimal set (no agterm): copy `worktree-create.sh`,
 `worktree-setup.sh`, `worktree-archive.sh`, `worktree-open-session.sh` (no-op
-outside agterm, but the procedure calls it) into `~/.config/harness/` and make them
-executable. Paths are hardcoded to `~/.config/harness/` — keep the layout or edit
+outside agterm, but the procedure calls it) and `rc-name.sh` (the session-openers
+call it; without it they fall back to the full branch slug as the Remote Control
+name) into `~/.config/harness/` and make them executable. Paths are hardcoded to `~/.config/harness/` — keep the layout or edit
 every reference. Dependencies: zsh, git, jq; docker CLI for teardown; optional: tmux
 (fallback), pnpm/yarn/npm (provisioning), agterm, solidtime (self-skips when
 absent). This file itself is the agent integration: load it as a skill or context.

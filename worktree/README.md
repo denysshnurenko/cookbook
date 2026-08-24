@@ -17,6 +17,7 @@ worktree і гілка (локальна, опційно remote) видаляю�
 | `worktree-archive.sh` | Ядро teardown: БД + worktree + локальна гілка; друкує `ARCHIVED …` |
 | `worktree-open-session.sh` | agterm: нова сесія у worktree (tmux-fallback); поза agterm — no-op |
 | `worktree-new.sh` / `worktree-rm.sh` | Інтерактивні overlay-обгортки для agterm-хоткеїв |
+| `rc-name.sh` | Слаг гілки → коротке ім'я Remote Control сесії (тікет першим, ~30 символів); кличуть його обидва відкривачі сесій |
 | `env-skip.example` | Шаблон списку апок, які пропускати при env sync |
 | `AGENTS.md` | Гайд для AI-агента: контракти, процедури, інваріанти |
 
@@ -30,7 +31,7 @@ zsh, git, jq; docker CLI (для archive). Опційні: pnpm/yarn/npm (про
 
 ```sh
 mkdir -p ~/.config/harness
-cp worktree-*.sh ~/.config/harness/ && chmod +x ~/.config/harness/worktree-*.sh
+cp worktree-*.sh rc-name.sh ~/.config/harness/ && chmod +x ~/.config/harness/worktree-*.sh ~/.config/harness/rc-name.sh
 # опційно: cp env-skip.example ~/.config/harness/env-skip   (і впиши свої апки)
 ```
 
