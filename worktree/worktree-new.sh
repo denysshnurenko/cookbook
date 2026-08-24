@@ -40,6 +40,10 @@ read -r branch
 branch="${branch:-$branch_default}"
 [[ -n "$branch" ]] || { print "🙅 cancelled."; sleep 1; exit 1; }
 slug="${branch//\//-}"
+# Short Remote Control name (ticket first). RC itself is already on for every session
+# via remoteControlAtStartup; the flag only NAMES it. The agterm sidebar keeps $slug.
+rcname="$("$HOME/.config/harness/rc-name.sh" "$slug")"
+[[ -n "$rcname" ]] || rcname="$slug"   # helper missing → the old long name, never an empty one
 wt="${root:h}/${repo}.worktrees/${slug}"
 
 base_fallback="${base_default:-master}"
@@ -140,11 +144,12 @@ if [[ -n "$sid" ]]; then
   sleep 2   # let the new fish session finish starting before we type into it
   # provision, then drop straight into claude in the worktree (';' → claude runs
   # even if provisioning fails, so you can ask it to fix the cause on the spot).
-  # --remote-control '<slug>' names the Remote Control session after the worktree,
-  # so it shows up as '<slug>' in claude.ai/code / the mobile app (matches the
-  # worktree skill's worktree-open-session.sh). claude.fish passes the flag through
+  # --remote-control '<rcname>' names the Remote Control session (rc-name.sh: ticket
+  # id first, a few meaningful words, ~30 chars), so it is readable in claude.ai/code /
+  # the mobile app where a full branch slug would truncate to 'feat-dt7…'. Matches the
+  # worktree skill's worktree-open-session.sh. claude.fish passes the flag through
   # and still pins --session-id to this tab's uuid.
-  agtermctl session type "~/.config/harness/worktree-setup.sh '${branch}'; claude --remote-control '${slug}'"$'\n' --target "$sid" 2>/dev/null
+  agtermctl session type "~/.config/harness/worktree-setup.sh '${branch}'; claude --remote-control '${rcname}'"$'\n' --target "$sid" 2>/dev/null
   # PIN the conversation for the next launch, instead of relying on agterm's auto-capture.
   # Auto-capture records a pane's foreground only at a CLEAN quit; a reboot, a crash or a
   # power loss captures nothing, and every worktree session then comes back as a bare shell
@@ -152,7 +157,7 @@ if [[ -n "$sid" ]]; then
   # known right here: the claude wrapper binds a tab's first conversation to the tab's own
   # uuid, lowercase. `--resume` on a not-yet-created conversation is rescued by the same
   # wrapper (it creates it under that id), so pinning before claude even starts is safe.
-  agtermctl session restore "claude --resume $(printf '%s' "$sid" | tr '[:upper:]' '[:lower:]') --remote-control '${slug}'" --target "$sid" 2>/dev/null
+  agtermctl session restore "claude --resume $(printf '%s' "$sid" | tr '[:upper:]' '[:lower:]') --remote-control '${rcname}'" --target "$sid" 2>/dev/null
   print "\n🎉 worktree created + session opened.\n   🧪 provisioning runs in '${slug}', then 🤖 claude starts."
 else
   print "\n🎉 worktree created at:\n   $wt\n   (couldn't auto-open a session — cd there and run: worktree-setup.sh '${branch}')"
