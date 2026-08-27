@@ -1,0 +1,29 @@
+{
+  "default_channel": "daily_meeting",
+  "channels": {
+    "daily_meeting": "C01234ABCDE"
+  },
+  "standup_time_kyiv": "10:30",
+  "slack": {
+    "workspace": "your-workspace",
+    "bot_token_keychain_item": "slack-daily-brief-bot-token"
+  },
+  "tracker": {
+    "name": "DOTT",
+    "web": "https://dott.example.com",
+    "api": "https://api.dott.example.com",
+    "mcp": "https://api.dott.example.com/mcp",
+    "user_email": "you@example.com"
+  },
+  "github": {
+    "baseline_repos": ["your-org/your-main-repo"]
+  },
+  "notes": {
+    "channels": "name → id, for channels slack_search_channels cannot find. A private channel where the Slack app is not a member never comes back from search even though YOU are in it — take the id from the channel URL (…/archives/<ID>) and put it here once.",
+    "standup_time_kyiv": "when your standup happens. The default brief window is `previous_standup_day standup_time → today standup_time`, so it covers work done after yesterday's meeting AND this morning's work before today's.",
+    "slack.workspace": "the <workspace> in <workspace>.slack.com — used to build message permalinks.",
+    "slack.bot_token_keychain_item": "macOS Keychain item holding the bot token (account = $USER). Create the Slack app yourself; it needs chat:write. See README.",
+    "tracker": "the issue tracker read over MCP. `web` is the issue-link base (<web>/issues/<number>); `user_email` is how the skill finds your tracker user id when the tracker has no whoami tool.",
+    "github.baseline_repos": "repos to check for Actions runs even in windows where you pushed no commits — a deploy you triggered, a nightly you care about."
+  }
+}
