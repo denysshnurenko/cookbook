@@ -53,6 +53,23 @@ if [[ -n "$slug_lc" ]]; then
 fi
 
 # 2. remove the worktree
+# Kill anything still running IN the worktree first. `git worktree remove --force` happily
+# deletes the directory out from under a live process, which then keeps running against a
+# path that no longer exists — 10 such orphans were found on 2026-08-28, the oldest four days
+# old, holding ports and memory. Agents start dev servers directly (plain `pnpm --filter X dev`,
+# not through dev-run.sh), so nothing else tracks them; cwd is the only reliable handle.
+# Prefix match, not `lsof -- "$wt"`: that only catches a cwd equal to the worktree ROOT, and a
+# dev server is as likely to sit in apps/<something>. `+D` would recurse but walks the whole
+# tree; one pass over every process's cwd is cheaper and this runs once, at teardown.
+# ${wt:A} resolves symlinks — lsof reports real paths (/private/var, not /var on macOS), so a
+# raw comparison can silently match nothing.
+lsof -d cwd -Fpn 2>/dev/null | awk -v w="${wt:A}/" '
+  /^p/ { pid = substr($0,2) }
+  /^n/ { d = substr($0,2); if (d == substr(w,1,length(w)-1) || index(d, w) == 1) print pid }
+' | sort -u | while read -r pid; do
+  [[ -n "$pid" && "$pid" != $$ ]] && { print -u2 "🔪 kill $pid (running in the worktree)"; kill "$pid" 2>/dev/null }
+done
+
 print -u2 "🪓 git worktree remove --force"
 if ! git -C "$main" worktree remove --force "$wt" 1>&2; then
   print -u2 "💥 git worktree remove failed — aborting (branch left intact)."; exit 1
