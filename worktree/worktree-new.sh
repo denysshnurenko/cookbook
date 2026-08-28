@@ -138,8 +138,27 @@ if [[ -f "$root/.claude/settings.local.json" ]]; then
   print "🔐 copied .claude/settings.local.json"
 fi
 
+# WHICH WORKSPACE THE SESSION LANDS IN — the REPO'S, not the one I happen to be looking at.
+# `--workspace active` was correct only for the hand-run path, where the shell is already inside
+# the repo. The ticket picker calls this script in an overlay on whatever session is in front of
+# me, so taking a ticket while reading another project filed its worktree in that project's
+# workspace (user, 2026-08-28).
+# Derived from live state instead of a config file: the workspace already holding the most
+# sessions for this checkout IS this repo's workspace, and it needs no upkeep when a repo is
+# added or a workspace renamed. A repo with no sessions anywhere has no right answer, and that
+# case falls through to `active` — the old behaviour, never a failure.
+ws="active"
+ws_found="$(agtermctl tree --json 2>/dev/null | jq -r --arg m "$root" --arg w "${root}.worktrees/" '
+  [ .result.tree.workspaces[]
+    | { id: .id,
+        n: ([ .sessions[]? | (.cwd // "")
+              | select(. == $m or startswith($m + "/") or startswith($w)) ] | length) }
+    | select(.n > 0) ]
+  | sort_by(-.n) | .[0].id // empty' 2>/dev/null)"
+[[ -n "$ws_found" ]] && ws="$ws_found"
+
 print "🪟 opening session + provisioning…"
-sid="$(agtermctl session new --json --workspace active --cwd "$wt" --name "$slug" 2>/dev/null | jq -r '.result.id // empty')"
+sid="$(agtermctl session new --json --workspace "$ws" --cwd "$wt" --name "$slug" 2>/dev/null | jq -r '.result.id // empty')"
 if [[ -n "$sid" ]]; then
   sleep 2   # let the new fish session finish starting before we type into it
   # provision, then drop straight into claude in the worktree (';' → claude runs
