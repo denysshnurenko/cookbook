@@ -14,6 +14,7 @@ worktree і гілка (локальна, опційно remote) видаляю�
 |---|---|
 | `worktree-create.sh` | Ядро створення: `<branch> [base]` → worktree; stdout = його шлях |
 | `worktree-setup.sh` | Провіжининг: `infra/worktree/setup.sh` репо або fallback (.env-симлінки + install) |
+| `worktree-preflight.sh` | Перевірка перед знищенням: незакомічене, незапушені коміти, запущені процеси, відкритий overlay. Відмовляє, поки є що втрачати |
 | `worktree-archive.sh` | Ядро teardown: БД + worktree + локальна гілка; друкує `ARCHIVED …` |
 | `worktree-open-session.sh` | agterm: нова сесія у worktree (tmux-fallback); поза agterm — no-op |
 | `worktree-new.sh` / `worktree-rm.sh` | Інтерактивні overlay-обгортки для agterm-хоткеїв |

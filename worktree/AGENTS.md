@@ -32,7 +32,8 @@ this file.
 | `worktree-setup.sh` | `<branch>` | Run with **cwd inside the worktree**. Human-readable progress; non-zero exit = provisioning failed but worktree+DB exist (see Failure rules). |
 | `worktree-open-session.sh` | `<wt-path> <branch>` | ONE line on stdout: `no-agterm` \| `opened-session <id>` \| `opened-tmux <name>` \| `agterm-session-failed`. Exit 0 except on total failure. |
 | `rc-name.sh` | `<branch-slug>` | stdout: ONE line — a short Remote Control session name (ticket id first, ~30 chars). Called BY `worktree-open-session.sh`/`worktree-new.sh`; you never call it directly. |
-| `worktree-archive.sh` | `<wt-path>` | stdout: `ARCHIVED slug=<slug> branch=<orig> remote=<yes\|no> drifted=<branch-or-empty>`; progress on stderr. Non-zero exit = teardown aborted (nothing irreversible happened past the reported step). |
+| `worktree-preflight.sh` | `<wt-path> [--list-jobs]` | Refuses (exit 1) while destroying would lose something: uncommitted changes, commits not pushed anywhere, a long-running job in the worktree, an open overlay on its session. Prints findings on stderr. `--list-jobs` prints just the job pids. Called by BOTH destroyers; pass `--force` to them to skip it. |
+| `worktree-archive.sh` | `<wt-path> [--force]` | stdout: `ARCHIVED slug=<slug> branch=<orig> remote=<yes\|no> drifted=<branch-or-empty>`; progress on stderr. Non-zero exit = teardown aborted (nothing irreversible happened past the reported step). |
 
 `base` semantics in create: default `master`; literal `.` or `HEAD` = the repo's
 current branch. base == current branch → branches off the **local** ref (keeps

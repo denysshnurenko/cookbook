@@ -47,6 +47,12 @@ read -r ans
 # when there's actually something worth reading.
 had_warning=0
 
+# 0. Preflight: refuse while something would be lost. Same script archive.sh uses — see there.
+if [[ "${1:-}" != --force ]]; then
+  "$HOME/.config/harness/worktree-preflight.sh" "$wt" || {
+    print "\n⛔ teardown cancelled — nothing was touched."; sleep 6; exit 1 }
+fi
+
 # 1. archive (drop DB container / volume / caddy) — best-effort. Output is
 # captured (not streamed) so we can scan it for a warning before deciding
 # whether to pause for you to read it.
