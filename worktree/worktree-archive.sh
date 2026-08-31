@@ -37,6 +37,27 @@ remote=no
 [[ "$orig_branch" != master && "$orig_branch" != dev && "$orig_branch" != "?" ]] \
   && git -C "$wt" show-ref --verify --quiet "refs/remotes/origin/$orig_branch" && remote=yes
 
+# 0. PREFLIGHT — what would be lost if this ran right now (uncommitted work, unpushed commits,
+# live processes, an open overlay). Shared with worktree-rm.sh rather than duplicated: they are
+# independent teardown paths, and a check in only one protects half the ways a worktree dies.
+# `--force` as the 2nd arg skips it, which is what the auto-archive idea would eventually pass
+# once its own conditions are checked upstream.
+#
+# FIRST, before anything is destroyed. It used to sit just above `git worktree remove`, i.e.
+# AFTER the DB was already dropped — so a refusal on uncommitted work left the worktree and the
+# branch intact and the database gone, while printing "nothing was touched". The guard charged
+# its full price in exactly the case it exists for: work that isn't finished.
+if [[ "${2:-}" != --force ]]; then
+  "$HOME/.config/harness/worktree-preflight.sh" "$wt" || exit 1
+fi
+# Kill exactly what the preflight reports, by asking it — the filter that keeps claude and fish
+# off that list lives in one place, so the warning and the kill can never disagree. Before the DB
+# goes, which is archive.sh's own stated order: the other way round leaves dev servers hammering
+# a socket that is gone.
+for pid in ${(f)"$("$HOME/.config/harness/worktree-preflight.sh" "$wt" --list-jobs 2>/dev/null)"}; do
+  [[ -n "$pid" ]] && { print -u2 "🔪 kill $pid (job running in the worktree)"; kill "$pid" 2>/dev/null }
+done
+
 # 1. archive the workspace DB (repo's own archive.sh) — best-effort, synchronous.
 # Run from a THROWAWAY EMPTY DIR, not from the worktree: archive.sh derives a
 # process sweep from its own cwd and that sweep is an UNFILTERED cwd match, so it
@@ -58,21 +79,7 @@ if [[ -n "$slug_lc" ]]; then
   done
 fi
 
-# 2. remove the worktree
-# PREFLIGHT — what would be lost if this ran right now (uncommitted work, unpushed commits, live
-# processes, an open overlay). Shared with worktree-rm.sh rather than duplicated: they are
-# independent teardown paths, and a check in only one protects half the ways a worktree dies.
-# `--force` as the 2nd arg skips it, which is what the auto-archive idea would eventually pass
-# once its own conditions are checked upstream.
-if [[ "${2:-}" != --force ]]; then
-  "$HOME/.config/harness/worktree-preflight.sh" "$wt" || exit 1
-fi
-# Kill exactly what the preflight reports, by asking it — the filter that keeps claude and fish
-# off that list lives in one place, so the warning and the kill can never disagree.
-for pid in ${(f)"$("$HOME/.config/harness/worktree-preflight.sh" "$wt" --list-jobs 2>/dev/null)"}; do
-  [[ -n "$pid" ]] && { print -u2 "🔪 kill $pid (job running in the worktree)"; kill "$pid" 2>/dev/null }
-done
-
+# 2. remove the worktree (preflight ran at step 0, before anything was destroyed)
 print -u2 "🪓 git worktree remove --force"
 if ! git -C "$main" worktree remove --force "$wt" 1>&2; then
   print -u2 "💥 git worktree remove failed — aborting (branch left intact)."; exit 1
