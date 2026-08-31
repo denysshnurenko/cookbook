@@ -53,12 +53,31 @@ if [[ "${1:-}" != --force ]]; then
     print "\n⛔ teardown cancelled — nothing was touched."; sleep 6; exit 1 }
 fi
 
+# 0b. Stop the worktree's JOBS (dev servers, watchers) ourselves, before the DB
+# goes — same filtered list the preflight warns about, so warning and kill can
+# never disagree. This used to be archive.sh's job and that is exactly the bug:
+# its sweep is an UNFILTERED cwd match, so it also found this agterm session's
+# own fish, TERMed it, the session closed, and closing a session destroys the
+# overlay ⌘⌥⇧T runs in — the script died here, every time, before docker rm.
+for pid in ${(f)"$("$HOME/.config/harness/worktree-preflight.sh" "$wt" --list-jobs 2>/dev/null)"}; do
+  [[ -z "$pid" ]] && continue
+  print "🔪 kill $pid ($(ps -p $pid -o args= 2>/dev/null | cut -c1-60))"
+  kill "$pid" 2>/dev/null
+done
+
 # 1. archive (drop DB container / volume / caddy) — best-effort. Output is
 # captured (not streamed) so we can scan it for a warning before deciding
 # whether to pause for you to read it.
+#
+# Run from a THROWAWAY EMPTY DIR, not from the worktree: archive.sh derives its
+# process sweep from its own cwd (`git rev-parse --show-toplevel`, else $PWD),
+# and that sweep is what killed this session out from under the teardown. An
+# empty non-repo cwd gives it nothing to match, leaving the jobs to step 0b
+# above. Everything it actually tears down — container, volume, caddy fragment,
+# port claim — is named from WORKTREE_NAME, never from cwd.
 if [[ -f "$wt/infra/worktree/archive.sh" ]]; then
   print "\n🧹 infra/worktree/archive.sh"
-  archive_out="$( ( cd "$wt"; WORKTREE_NAME="$wt_slug" zsh "$wt/infra/worktree/archive.sh" ) 2>&1 )"
+  archive_out="$( ( cd "$(mktemp -d)"; WORKTREE_NAME="$wt_slug" zsh "$wt/infra/worktree/archive.sh" ) 2>&1 )"
   archive_rc=$?
   [[ -n "$archive_out" ]] && print -r -- "$archive_out"
   (( archive_rc != 0 )) && { print "    💥 archive error — continuing"; had_warning=1; }

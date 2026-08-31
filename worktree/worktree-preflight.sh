@@ -80,6 +80,13 @@ worktree_jobs() {
     [[ -z "$args" ]] && continue
     case "$args" in
       *claude*|*/fish*|*zsh*|*bash*|*agtermctl*|*caffeinate*|*"sleep "*|*.claude/plugins/*) continue ;;
+      # harness's own residents. window-tint.py is the one that bit: a SINGLETON
+      # watcher whose cwd is whichever session started it, so whenever that was a
+      # worktree session, ⌘⌥⇧T refused to tear it down — "pid N still running
+      # here: …/Python …/window-tint.py watch". st-watch and the overlay helpers
+      # only escaped because they run as zsh/sh and matched the shell patterns
+      # above; matching the path covers every harness watcher, present and future.
+      *.config/harness/*) continue ;;
     esac
     print -r -- "$pid"
   done

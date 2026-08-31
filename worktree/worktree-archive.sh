@@ -37,10 +37,16 @@ remote=no
 [[ "$orig_branch" != master && "$orig_branch" != dev && "$orig_branch" != "?" ]] \
   && git -C "$wt" show-ref --verify --quiet "refs/remotes/origin/$orig_branch" && remote=yes
 
-# 1. archive the workspace DB (repo's own archive.sh) — best-effort, synchronous
+# 1. archive the workspace DB (repo's own archive.sh) — best-effort, synchronous.
+# Run from a THROWAWAY EMPTY DIR, not from the worktree: archive.sh derives a
+# process sweep from its own cwd and that sweep is an UNFILTERED cwd match, so it
+# also kills the agterm shell of any session sitting in this worktree — which
+# closes that session and, on the ⌘⌥⇧T path, the overlay the teardown itself runs
+# in. Jobs are killed below from the preflight's filtered list instead. What
+# archive.sh tears down is named from WORKTREE_NAME, never from cwd.
 if [[ -f "$wt/infra/worktree/archive.sh" ]]; then
   print -u2 "🧹 infra/worktree/archive.sh (WORKTREE_NAME=$slug)"
-  ( cd "$wt"; WORKTREE_NAME="$slug" zsh "$wt/infra/worktree/archive.sh" ) 1>&2 \
+  ( cd "$(mktemp -d)"; WORKTREE_NAME="$slug" zsh "$wt/infra/worktree/archive.sh" ) 1>&2 \
     || print -u2 "   ⚠️  archive.sh error — continuing with worktree removal"
 fi
 # 1b. generic docker fallback: catch any db-<slug> container archive.sh's exact-name
