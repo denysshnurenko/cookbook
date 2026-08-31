@@ -87,6 +87,19 @@ worktree_jobs() {
       # only escaped because they run as zsh/sh and matched the shell patterns
       # above; matching the path covers every harness watcher, present and future.
       *.config/harness/*) continue ;;
+      # An agent session's MCP and LSP servers. They are the session's machinery, hold no state,
+      # and come back on its next start — nothing is lost by removing the worktree under one.
+      # Matched by NAME rather than by "is a descendant of claude", which was tried and is wrong:
+      # a dev server the agent starts in the background is equally a child of claude, and hiding
+      # THAT is the 2026-08-28 bug this check exists for. `.claude/plugins/*` above already covers
+      # a plugin-path server; these are the npx-launched ones, which walk straight past it —
+      # `npm exec @playwright/mcp@latest` plus its
+      # `~/.npm/_npx/<hash>/node_modules/.bin/playwright-mcp` child, `mongodb-mcp-server` the same
+      # way, and OMC's `typescript-language-server --stdio`. Verified against the live tree: no
+      # real job (pnpm dev servers, `node --enable-source-maps`, cloud_sql_proxy) contains either
+      # word. An ORPHANED one, whose session already died, is excluded too — it is a leftover, but
+      # a harmless one, and refusing a teardown over it only teaches you to skip the warning.
+      *mcp*|*language-server*) continue ;;
     esac
     print -r -- "$pid"
   done
