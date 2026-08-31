@@ -50,13 +50,34 @@ fi
 # skip the warning. Worse, archive.sh KILLS this list — unfiltered it would kill the user's claude.
 # Residents of a healthy worktree are excluded; anything else is a job that should be stopped
 # deliberately, not have its directory deleted underneath it.
+#
+# Two things are excluded before the name filter is even consulted, because neither is a job and
+# both made the guard block on ITSELF:
+#
+#   - This run's own ancestry. ⌘⌥⇧T opens worktree-rm.sh INSIDE an overlay whose cwd is the
+#     worktree, so its wrapper shells (`-sh -c ( eval "$AGTERM_OVL_CMD" )`) sit in the lsof set —
+#     and `$$` alone excludes only this script. Reported, they read as blockers; killed by
+#     archive.sh, they are the teardown killing itself half-way through.
+#   - A pid whose args come back EMPTY. lsof snapshots pids, then `ps` runs a moment later; a
+#     short-lived child (this pipeline's own lsof/awk/sort, or any command an agent session just
+#     ran here) is already gone. The name filter is a `case` over $args, and an empty string
+#     matches no pattern, so every such pid fell through as a blocker with a blank command line —
+#     the `pid 83461 still running here:` lines with nothing after the colon.
+typeset -gA _wt_self
+_p=$$
+while [[ -n "$_p" && "$_p" != 0 && "$_p" != 1 ]]; do
+  _wt_self[$_p]=1
+  _p="$(ps -p "$_p" -o ppid= 2>/dev/null | tr -d ' ')"
+done
+
 worktree_jobs() {
   lsof -d cwd -Fpn 2>/dev/null | awk -v w="${1:A}/" '
     /^p/ { pid = substr($0,2) }
     /^n/ { d = substr($0,2); if (d == substr(w,1,length(w)-1) || index(d, w) == 1) print pid }
   ' | sort -u | while read -r pid; do
-    [[ -z "$pid" || "$pid" == $$ ]] && continue
+    [[ -z "$pid" || -n "${_wt_self[$pid]:-}" ]] && continue
     args="$(ps -p "$pid" -o args= 2>/dev/null)"
+    [[ -z "$args" ]] && continue
     case "$args" in
       *claude*|*/fish*|*zsh*|*bash*|*agtermctl*|*caffeinate*|*"sleep "*|*.claude/plugins/*) continue ;;
     esac
@@ -76,8 +97,21 @@ done
 
 # 4. An overlay open on this worktree's session — revdiff with unsaved annotations is the case
 # that hurts, and it is invisible from the filesystem.
-sess="$(agtermctl tree --json 2>/dev/null | jq -r --arg w "$wt" \
-  '.result.tree.workspaces[].sessions[] | select(.cwd == $w and .overlay != false and .overlay != null) | .name' 2>/dev/null)"
+#
+# EXCEPT the overlay we are ourselves running in. ⌘⌥⇧T is `agtermctl session overlay open
+# worktree-rm.sh --cwd "$AGT_SESSION_PWD"` (keymap.conf), i.e. the destroyer is an overlay on the
+# very session it is about to tear down — so this check found its own and ⌘⌥⇧T could never once
+# succeed. An overlay child carries AGTERM_OVL_CMD and the AGTERM_SESSION_ID of its session, and
+# never AGTERM_PANE; skip exactly that session id, so a SECOND overlay (a real revdiff) on the same
+# session still blocks.
+own=""
+[[ -n "${AGTERM_OVL_CMD:-}" ]] && own="${AGTERM_SESSION_ID:-}"
+sess="$(agtermctl tree --json 2>/dev/null | jq -r --arg w "$wt" --arg own "$own" '
+  .result.tree.workspaces[].sessions[]
+  | select(.cwd == $w)
+  | select(.overlay != false and .overlay != null)
+  | select($own == "" or (.id | ascii_downcase) != ($own | ascii_downcase))
+  | .name' 2>/dev/null)"
 [[ -n "$sess" ]] && { print -u2 "🚫 an overlay is open in session '$sess' (revdiff? unsaved annotations)"; blocked=1 }
 
 (( blocked )) && { print -u2 "   → nothing was touched. Re-run with --force to destroy anyway."; exit 1 }
