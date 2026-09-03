@@ -12,6 +12,13 @@ branch="${1:-$(git symbolic-ref --short -q HEAD)}"
 main="$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')"
 base_port="${WORKTREE_BASE_PORT:-9000}"
 
+# A fresh worktree is a fresh Claude Code "project", and a project starts with every claude.ai
+# connector on. Disabling one is a PER-PROJECT flag (measured 2026-09-03 — there is no global
+# one that spares Remote Control), so it has to be written before the first session, and this
+# runs on the same command line as `claude`, just ahead of it. Best-effort and silent on
+# failure: a worktree must still come up if the config cannot be written.
+/usr/bin/python3 "$HOME/.config/harness/dispatcher/mcp-off.py" --path "$wt" 2>/dev/null
+
 # apps to skip during `env sync` (e.g. ones whose Secret Manager you can't access
 # but don't run locally). One app name per line in this file; '#' comments ok.
 # Requires the CLI's --exclude/HCC_ENV_SYNC_EXCLUDE support (feat/cli-env-sync-exclude).
