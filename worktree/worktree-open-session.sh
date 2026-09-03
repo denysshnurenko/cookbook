@@ -55,6 +55,10 @@ sid="$(agtermctl session new --json "${ws_args[@]}" "${win_args[@]}" --cwd "$wt"
 if [[ -z "$sid" ]]; then open_tmux_fallback; fi
 
 # selecting nudges agterm to realize the new surface; then type with retries
+# Opening a worktree is the user asking to work on it, so mark the landing: st-watch takes
+# this as permission to start the timer there instead of inferring it from an idle clock.
+mkdir -p "$HOME/.config/harness/state/dispatcher/landed" 2>/dev/null
+: > "$HOME/.config/harness/state/dispatcher/landed/$sid" 2>/dev/null
 agtermctl session select --target "$sid" "${win_args[@]}" >/dev/null 2>&1
 cmd="~/.config/harness/worktree-setup.sh '${branch}'; claude --remote-control '${rcname}'"
 typed=0
