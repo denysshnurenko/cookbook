@@ -9,6 +9,7 @@
 |---|---|---|
 | [worktree/](worktree/) | git worktree на кожну гілку з ізольованим оточенням (БД/порти) — створення і архівація | zsh, git, jq, docker; опційно agterm, tmux, solidtime |
 | [daily-brief/](daily-brief/) | бриф до стендапу, який агент збирає сам з GitHub, Slack і трекера задач — Canvas + короткий меседж у канал, окремо «що висить на мені» | Claude Code, gh, jq, python3, Slack MCP; опційно MCP трекера |
+| [slack-user-token/](slack-user-token/) | агент пише в Slack від твого імені через user token — надсилає, редагує, вантажить файли, без MCP | python3; Slack app з user token (як отримати — в README) |
 
 > Цей репозиторій — автоматичне дзеркало з мого приватного harness-репо: прямі
 > коміти/PR-и сюди буде перезаписано наступним синком. Пропозиції — через issues.
