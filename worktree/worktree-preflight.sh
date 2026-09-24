@@ -99,7 +99,12 @@ worktree_jobs() {
       # real job (pnpm dev servers, `node --enable-source-maps`, cloud_sql_proxy) contains either
       # word. An ORPHANED one, whose session already died, is excluded too — it is a leftover, but
       # a harmless one, and refusing a teardown over it only teaches you to skip the warning.
-      *mcp*|*language-server*) continue ;;
+      #
+      # `*tsserver*` joined 2026-09-24: the TypeScript language server does its work in
+      # `node …/typescript/lib/tsserver.js` children — plus `typingsInstaller.js` — whose command
+      # lines carry neither word above, so three of them blocked a clean teardown and a session
+      # had to kill its own LSP by hand before ⌘⇧E 🧹 would go through.
+      *mcp*|*language-server*|*tsserver*|*typingsInstaller*) continue ;;
     esac
     print -r -- "$pid"
   done

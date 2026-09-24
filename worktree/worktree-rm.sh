@@ -141,9 +141,24 @@ else
   sleep 1
 fi
 
-# 4. close the worktree's session (also tears down this overlay)
+# 4. close the worktree's session (also tears down this overlay).
+# In ITS window: `session close` without --window resolves the id in the FRONTMOST window only, so
+# switching windows while the teardown ran left the tab open on a deleted directory — silently,
+# because the error went to /dev/null (2026-09-24). Find the window, close, and say so if
+# the session is somehow still there.
 if [[ -n "$sid" ]]; then
-  agtermctl session close --target "$sid" 2>/dev/null
+  win=""
+  for w in ${(f)"$(agtermctl window list --json 2>/dev/null | jq -r '.result.windows[] | select(.open) | .id')"}; do
+    agtermctl tree --json --window "$w" 2>/dev/null \
+      | jq -e --arg s "${sid:l}" '.result.tree.workspaces[].sessions[] | select((.id | ascii_downcase) == $s)' >/dev/null \
+      && { win="$w"; break; }
+  done
+  if [[ -z "$win" ]]; then
+    print "    (the session is already gone)"; sleep 1
+  elif ! err="$(agtermctl session close --target "$sid" --window "$win" 2>&1)"; then
+    print "\n💥 could not close the session: $err\n   close it with cmd+w — press any key"
+    read -k 1 -s -r
+  fi
 else
-  print "    (couldn't find the session to close — close it with cmd+w)"; sleep 2
+  print "    (no agterm session sits in this worktree — nothing to close)"; sleep 2
 fi
