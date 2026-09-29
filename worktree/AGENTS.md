@@ -29,7 +29,7 @@ this file.
 | Script | Args | Output contract |
 |---|---|---|
 | `worktree-create.sh` | `<branch> [base]` | stdout: the new worktree's **absolute path** (last line — capture it); progress on stderr. Non-zero exit = **nothing was created**: surface stderr, stop. |
-| `worktree-setup.sh` | `<branch>` | Run with **cwd inside the worktree**. Human-readable progress; non-zero exit = provisioning failed but worktree+DB exist (see Failure rules). |
+| `worktree-setup.sh` | `<branch>` | Run with **cwd inside the worktree**. Human-readable progress; non-zero exit = provisioning failed but worktree+DB exist (see Failure rules). Ends with a VERIFY (DB port answers, install present) and writes **`.harness/provisioned`** (key=value: `provisioned`, `branch`, `head`, `base_port`, `pg_port`, `verify`, `note=…`) — read THAT for ports, never `.env`; its presence means "already provisioned", so do not re-run setup after a resume. `.harness/` is kept out of git via the checkout's local `info/exclude`. |
 | `worktree-open-session.sh` | `<wt-path> <branch>` | ONE line on stdout: `no-agterm` \| `opened-session <id>` \| `opened-tmux <name>` \| `agterm-session-failed`. Exit 0 except on total failure. |
 | `rc-name.sh` | `<branch-slug>` | stdout: ONE line — a short Remote Control session name (ticket id first, ~30 chars). Called BY `worktree-open-session.sh`/`worktree-new.sh`; you never call it directly. |
 | `worktree-preflight.sh` | `<wt-path> [--list-jobs]` | Refuses (exit 1) while destroying would lose something: uncommitted changes, commits not pushed anywhere, a long-running job in the worktree, an open overlay on its session. Prints findings on stderr. `--list-jobs` prints just the job pids. Called by BOTH destroyers; pass `--force` to them to skip it. |

@@ -64,8 +64,69 @@ else
   else print "   (no lockfile — skipping install)"; fi
 fi
 
-if (( rc == 0 )); then
+# ── VERIFY, then leave a marker (2026-09-30) ─────────────────────────────────────────────────
+# Provisioning used to end on its own exit code and nothing else: nobody checked that what it
+# set up actually answers, and no file said "this worktree is provisioned, with these ports" —
+# so a session resumed after compaction re-ran the setup, and an agent that needed a port read
+# `.env` (which the permission hook denies) instead of asking a file meant for it.
+# Checks are the ones that cannot lie: the DB port from the repo's workspace state file
+# accepts a connection; the lockfile's install exists. Both conditional on what the repo has,
+# so the fallback path (no infra setup) still verifies what it did.
+verify_ok=1
+verify_notes=()
+base_port_used=""; pg_port=""
+ws_state="$wt/.hcc-workspace"
+if [[ -f "$ws_state" ]]; then
+  base_port_used="$(sed -n 's/^WORKTREE_BASE_PORT=//p' "$ws_state" | head -1)"
+  # offset 5 of the port block is the workspace's PostgreSQL (infra/worktree/setup.sh)
+  [[ -n "$base_port_used" ]] && pg_port=$((base_port_used + 5))
+fi
+if [[ -n "$pg_port" ]]; then
+  if nc -z 127.0.0.1 "$pg_port" >/dev/null 2>&1; then
+    verify_notes+=("pg 127.0.0.1:$pg_port answers")
+  else
+    verify_ok=0; verify_notes+=("pg: nothing listens on 127.0.0.1:$pg_port")
+  fi
+fi
+if [[ -f pnpm-lock.yaml || -f yarn.lock || -f package-lock.json ]]; then
+  if [[ -d "$wt/node_modules" ]]; then verify_notes+=("node_modules present")
+  else verify_ok=0; verify_notes+=("node_modules missing"); fi
+fi
+if [[ -d "$wt/apps" ]]; then
+  env_n="$(find "$wt/apps" -maxdepth 2 \( -name '.env' -o -name '.env.*' \) ! -name '*example*' 2>/dev/null | wc -l | tr -d ' ')"
+  (( env_n > 0 )) && verify_notes+=("$env_n env file(s) under apps/") || verify_notes+=("no env files under apps/ yet (product env sync not run)")
+fi
+
+# The marker: `.harness/provisioned`, key=value, readable by any session in this worktree —
+# ports live HERE so nobody has to open `.env` for them. `.harness/` is kept out of git through
+# the repo's local `info/exclude` (shared by every worktree of the checkout, never committed),
+# so the teardown preflight's `git status` does not count it as uncommitted work.
+common="$(git rev-parse --git-common-dir 2>/dev/null)"
+if [[ -n "$common" ]]; then
+  mkdir -p "$common/info"
+  grep -qx '.harness/' "$common/info/exclude" 2>/dev/null || print '.harness/' >> "$common/info/exclude"
+fi
+mkdir -p "$wt/.harness"
+{
+  print "provisioned=$(date -u +%FT%TZ)"
+  print "branch=$branch"
+  print "head=$(git rev-parse --short HEAD 2>/dev/null)"
+  print "main=$main"
+  print "base_port=${base_port_used:-}"
+  print "pg_port=${pg_port:-}"
+  print "setup_exit=$rc"
+  print "verify=$(( verify_ok ))"
+  for n in "${verify_notes[@]}"; do print "note=$n"; done
+} > "$wt/.harness/provisioned"
+
+print ""
+for n in "${verify_notes[@]}"; do print "   ✔ $n" | sed "s/✔ \(.*nothing listens.*\|.*missing.*\)/✘ \1/"; done
+if (( rc == 0 && verify_ok )); then
   print "\n🎉 worktree ready: $wt"
+  [[ -n "$base_port_used" ]] && print "   ports: base $base_port_used · pg $pg_port  (also in .harness/provisioned)"
+elif (( rc == 0 )); then
+  print "\n⚠️  provisioning finished but VERIFY failed — see ✘ above; .harness/provisioned records it."
+  rc=1
 else
   print "\n💥 worktree + DB exist, but provisioning FAILED (exit $rc) — see the error above."
   print "   Fix the cause, then re-run in this dir:  worktree-setup.sh '$branch'"
