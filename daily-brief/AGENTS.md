@@ -215,6 +215,28 @@ and say plainly that the bot post failed and why.
 
 Skip this step on `--dry-run`.
 
+### Step 6c — The same brief as a page in agterm (optional, never a delivery)
+
+When the session runs inside agterm (`AGTERM_ENABLED=1`) and the `agdoc` skill is installed
+(`~/.claude/skills/agdoc/assets/brief.html` exists), build the brief as a one-screen HTML page
+and open it over THIS session, so it is waiting there when the user comes to the standup:
+
+1. Copy the template's `<head>` and build the body from `brief.html`'s structure: `.mast` with
+   eyebrow `DAILY BRIEF · <DATE_FROM–DATE_TO>`, the title `Daily brief <date>`, a `.tag` per
+   category count; `.bottom` = the one-sentence thesis of the day; one `.fact` block per
+   category in the Step 4 order (✅ Зроблено · ⚠️ Блокери · 📨 Висить на мені · 📅 Плани ·
+   📁 Інше), each item one `<li>` with its links kept; footer = sources and the generation time.
+   Same items and wording as the canvas — the page is the canvas at a glance, not a new text.
+2. Write it to `~/.config/harness/state/agdoc/daily-brief-<DATE_TO>.html`.
+3. Open it: `agtermctl session overlay open --html <file> --target "$AGTERM_SESSION_ID"
+   --socket "$AGTERM_SOCKET" --size-percent 95`. **No `--follow`** — the brief runs unattended
+   before the standup and must not pull the user into this session; the open page ranks the
+   session in the queue, which is how they find it. If an overlay is already open here, close
+   it first (`agtermctl session overlay close --target "$AGTERM_SESSION_ID"`).
+
+Skip silently outside agterm, on `--dry-run`, or if any of it fails: the Slack post in 6b is
+the delivery, this is a view of it.
+
 ### Step 7 — Resolve the destination
 
 1. `config.json` `channels` map — if the name is there, use the id and skip searching.
