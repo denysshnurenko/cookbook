@@ -99,15 +99,21 @@ just after cutoff" rather than dropping it (otherwise it reappears tomorrow as i
 
 **2.3 Tracker — issues you touched, and your comments.**
 
-⚠️ **Read this before implementing.** A tracker's MCP surface usually has **no per-user
-activity log and no server-side assignee / updated-at / date filters** — so you cannot ask
-"changes by user X between A and B". This step therefore *approximates* your activity as
-**issues currently assigned to you whose `updatedAt` falls in the window, plus your comments**.
-It over-selects (any field edit by anyone bumps `updatedAt`) and cannot attribute a status
-change to you. So treat **GitHub and Slack as the real "what I did"**, and the tracker as
-"current state of my board". Say so if the user asks how the numbers were derived.
+**Activity log first, when the tracker has one.** DOTT gained `dott_list_activities`
+(2026-09-29): every issue change with actor, time and link — status, priority, assignees,
+labels, rename, description edit, sprint, estimate, linked / merged pull request, validation
+report — filterable by `mine`, a time window, issues and types. Comments are not in it. With such
+a log, "what did I change in the window" is one call, and the tracker becomes a real source of
+"what I did" rather than an approximation. Without one (older server, another tracker) use the
+sweep in 1b, and say so if the user asks how the numbers were derived.
 
-1. **Issues** — list issues ordered newest-created, `limit=100`, scoped by your team or project
+0. **What I changed** — `dott_list_activities` with `mine=true`, `createdAtFrom` / `createdAtTo`
+   = the window (ISO with offset), `limit=100`, page while there is more; group by issue. Map:
+   a status move into a completed-category status, a merged pull request, a validation report
+   → ✅ done; a move into a Fix Needed / blocked status → ⚠️ blockers; description, name,
+   estimate or sprint edits on an issue still in progress → 📅 plans; assignee / label changes
+   alone → 📁 other.
+1b. **Fallback sweep (no activity log)** — list issues ordered newest-created, `limit=100`, scoped by your team or project
    so you do not page the whole account. Keep a row when `updatedAt` ∈ window **and**
    `TRACKER_FULL_NAME` ∈ its assignees; also keep rows created in the window that are yours.
 2. **Detail** — for each kept issue, and for any issue number surfaced from GitHub or Slack,
