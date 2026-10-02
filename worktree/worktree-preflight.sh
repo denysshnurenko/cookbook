@@ -105,6 +105,12 @@ worktree_jobs() {
       # lines carry neither word above, so three of them blocked a clean teardown and a session
       # had to kill its own LSP by hand before ⌘⇧E 🧹 would go through.
       *mcp*|*language-server*|*tsserver*|*typingsInstaller*) continue ;;
+      # A macOS app is never a worktree's job, only a process that inherited its cwd. OrbStack's
+      # VM manager (`OrbStack Helper vmgr -handoff`) takes the cwd of whatever shell first woke
+      # Docker — a worktree's `dev:up` on 2026-09-28 — and kept it, so it blocked that
+      # worktree's teardown four days later. Worse under --force: archive kills this list, and
+      # killing it takes Docker down for every worktree on the machine.
+      /Applications/*) continue ;;
     esac
     print -r -- "$pid"
   done
