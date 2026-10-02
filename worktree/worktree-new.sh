@@ -168,7 +168,11 @@ if [[ -n "$sid" ]]; then
   # the mobile app where a full branch slug would truncate to 'feat-dt7…'. Matches the
   # worktree skill's worktree-open-session.sh. claude.fish passes the flag through
   # and still pins --session-id to this tab's uuid.
-  agtermctl session type "~/.config/harness/worktree-setup.sh '${branch}'; claude --remote-control '${rcname}'"$'\n' --target "$sid" 2>/dev/null
+  # WORKTREE_FIRST_PROMPT (optional) becomes claude's first prompt — a slash command that starts
+  # the work in the fresh session, so the worktree does not sit waiting for someone to type.
+  first=""
+  [[ -n "${WORKTREE_FIRST_PROMPT:-}" ]] && first=" '${WORKTREE_FIRST_PROMPT//\'/}'"
+  agtermctl session type "~/.config/harness/worktree-setup.sh '${branch}'; claude --remote-control '${rcname}'${first}"$'\n' --target "$sid" 2>/dev/null
   # PIN the conversation for the next launch, instead of relying on agterm's auto-capture.
   # Auto-capture records a pane's foreground only at a CLEAN quit; a reboot, a crash or a
   # power loss captures nothing, and every worktree session then comes back as a bare shell
