@@ -36,7 +36,7 @@ open_tmux_fallback() {
   local tname="$slug" n=2
   while tmux has-session -t "=$tname" 2>/dev/null; do tname="${slug}-$((n++))"; done
   tmux new-session -d -s "$tname" -c "$wt" \
-    "$HOME/.config/harness/worktree-setup.sh '${branch}'; claude --remote-control '${rcname}'" \
+    "$HOME/.config/harness/worktree-setup.sh '${branch}'; claude --name '${slug}' --remote-control '${rcname}'" \
     || { print -- "agterm-session-failed"; exit 1; }
   print -- "opened-tmux $tname"
   exit 0
@@ -60,7 +60,7 @@ if [[ -z "$sid" ]]; then open_tmux_fallback; fi
 mkdir -p "$HOME/.config/harness/state/dispatcher/landed" 2>/dev/null
 : > "$HOME/.config/harness/state/dispatcher/landed/$sid" 2>/dev/null
 agtermctl session select --target "$sid" "${win_args[@]}" >/dev/null 2>&1
-cmd="~/.config/harness/worktree-setup.sh '${branch}'; claude --remote-control '${rcname}'"
+cmd="~/.config/harness/worktree-setup.sh '${branch}'; claude --name '${slug}' --remote-control '${rcname}'"
 typed=0
 for _ in 1 2 3; do
   sleep 2

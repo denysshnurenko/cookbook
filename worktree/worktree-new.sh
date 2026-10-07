@@ -172,7 +172,7 @@ if [[ -n "$sid" ]]; then
   # the work in the fresh session, so the worktree does not sit waiting for someone to type.
   first=""
   [[ -n "${WORKTREE_FIRST_PROMPT:-}" ]] && first=" '${WORKTREE_FIRST_PROMPT//\'/}'"
-  agtermctl session type "~/.config/harness/worktree-setup.sh '${branch}'; claude --remote-control '${rcname}'${first}"$'\n' --target "$sid" 2>/dev/null
+  agtermctl session type "~/.config/harness/worktree-setup.sh '${branch}'; claude --name '${slug}' --remote-control '${rcname}'${first}"$'\n' --target "$sid" 2>/dev/null
   # PIN the conversation for the next launch, instead of relying on agterm's auto-capture.
   # Auto-capture records a pane's foreground only at a CLEAN quit; a reboot, a crash or a
   # power loss captures nothing, and every worktree session then comes back as a bare shell
