@@ -9,6 +9,8 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 # (the task picker does: it knows the ticket, this script knows how to make a worktree).
 #   --branch <name>   prefill the branch prompt
 #   --base <ref>      prefill the base prompt
+#   WORKTREE_YES=1    take both defaults without asking (a flow that opens several at once —
+#                     the epic's layers — already settled the names with the user)
 # Both stay EDITABLE on purpose: a branch name generated from a ticket title is a guess, and
 # it outlives the guess as a directory, a session name and a remote ref.
 branch_default=""; base_default=""
@@ -36,7 +38,7 @@ if [[ -n "$branch_default" ]]; then
 else
   print -n "👉  branch name: "
 fi
-read -r branch
+if [[ -n "${WORKTREE_YES:-}" && -n "$branch_default" ]]; then branch=""; print; else read -r branch; fi
 branch="${branch:-$branch_default}"
 [[ -n "$branch" ]] || { print "🙅 cancelled."; sleep 1; exit 1; }
 slug="${branch//\//-}"
@@ -48,7 +50,7 @@ wt="${root:h}/${repo}.worktrees/${slug}"
 
 base_fallback="${base_default:-master}"
 print -n "🌳  base branch [${base_fallback}]  ('.' = current '${current}'): "
-read -r base_in
+if [[ -n "${WORKTREE_YES:-}" ]]; then base_in=""; print; else read -r base_in; fi
 base="${base_in:-$base_fallback}"
 [[ "$base" == "." || "$base" == "HEAD" ]] && base="$current"
 
