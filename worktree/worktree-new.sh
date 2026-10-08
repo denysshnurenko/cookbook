@@ -98,7 +98,10 @@ if [[ "$(jq -r '.propose // false' <<<"$prop" 2>/dev/null)" == "true" ]]; then
   pname="$(jq -r '.projects[0].name' <<<"$prop")"
   pid="$(jq -r '.projects[0].id' <<<"$prop")"
   print ""
-  if read -q "yn?⏱ no solidtime task for this ticket — create '${tname}' in ${pname}? [y/N] "; then
+  # WORKTREE_YES answers this one too (2026-10-08: the epic's layers stopped on it after
+  # skipping the two prompts above — the one answer he gave covered the whole flow).
+  if [[ -n "${WORKTREE_YES:-}" ]] && print "⏱ no solidtime task for this ticket — creating '${tname}' in ${pname}" \
+     || read -q "yn?⏱ no solidtime task for this ticket — create '${tname}' in ${pname}? [y/N] "; then
     print ""
     created="$("$HOME/.config/harness/solidtime/st" create-task "$tname" --project "$pid" --json 2>/dev/null)"
     tid="$(jq -r '.id // empty' <<<"$created" 2>/dev/null)"
