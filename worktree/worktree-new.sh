@@ -13,6 +13,9 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 #                     the epic's layers — already settled the names with the user)
 #   WORKTREE_SESSION_NAME=<name>  the sidebar name of the new session (default: the branch slug);
 #                     the worktree directory and the remote-control name keep the slug
+#   WORKTREE_SESSION_AFTER=<session id>  place the new session right after this one in the
+#                     sidebar (an epic's layer under its coordinator); unset = wherever agterm
+#                     appends it, the watcher reorders later
 #   WORKTREE_CLAUDE_MODEL=<model>  start claude on this model (`--model`), e.g. opus for an epic's
 #                     layers; unset = the account's default from ~/.claude/settings.json
 #   WORKTREE_CLAUDE_EFFORT=<low|medium|high|xhigh|max>  start claude with `--effort`; unset =
@@ -171,6 +174,9 @@ ws_found="$(agtermctl tree --json 2>/dev/null | jq -r --arg m "$root" --arg w "$
 print "🪟 opening session + provisioning…"
 sid="$(agtermctl session new --json --workspace "$ws" --cwd "$wt" --name "${WORKTREE_SESSION_NAME:-$slug}" 2>/dev/null | jq -r '.result.id // empty')"
 if [[ -n "$sid" ]]; then
+  # Into place at once: agterm appends a new session at the bottom of the workspace, and a
+  # watcher that reorders once a minute left an epic's layers split in two for a tick.
+  [[ -n "${WORKTREE_SESSION_AFTER:-}" ]] && agtermctl session move --after "$WORKTREE_SESSION_AFTER" --target "$sid" >/dev/null 2>&1
   sleep 2   # let the new fish session finish starting before we type into it
   # provision, then drop straight into claude in the worktree (';' → claude runs
   # even if provisioning fails, so you can ask it to fix the cause on the spot).
