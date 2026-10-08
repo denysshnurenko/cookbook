@@ -11,6 +11,8 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 #   --base <ref>      prefill the base prompt
 #   WORKTREE_YES=1    take both defaults without asking (a flow that opens several at once —
 #                     the epic's layers — already settled the names with the user)
+#   WORKTREE_SESSION_NAME=<name>  the sidebar name of the new session (default: the branch slug);
+#                     the worktree directory and the remote-control name keep the slug
 # Both stay EDITABLE on purpose: a branch name generated from a ticket title is a guess, and
 # it outlives the guess as a directory, a session name and a remote ref.
 branch_default=""; base_default=""
@@ -160,7 +162,7 @@ ws_found="$(agtermctl tree --json 2>/dev/null | jq -r --arg m "$root" --arg w "$
 [[ -n "$ws_found" ]] && ws="$ws_found"
 
 print "🪟 opening session + provisioning…"
-sid="$(agtermctl session new --json --workspace "$ws" --cwd "$wt" --name "$slug" 2>/dev/null | jq -r '.result.id // empty')"
+sid="$(agtermctl session new --json --workspace "$ws" --cwd "$wt" --name "${WORKTREE_SESSION_NAME:-$slug}" 2>/dev/null | jq -r '.result.id // empty')"
 if [[ -n "$sid" ]]; then
   sleep 2   # let the new fish session finish starting before we type into it
   # provision, then drop straight into claude in the worktree (';' → claude runs
