@@ -64,6 +64,24 @@ else
   else print "   (no lockfile — skipping install)"; fi
 fi
 
+# ── PRODUCT STAGE 2 (2026-10-13, #212) ────────────────────────────────────────────────────────
+# hopecloud's infra/worktree/setup.sh deliberately provisions backoffice only (built, migrated,
+# seeded) and prints «pnpm setup:jet / setup:eg» for the rest; nothing ran them, so #212's
+# `e2e:up:eg` timed out on an engage schema with 0 of 91 migrations applied (8 min lost, one
+# failed stack start). The product comes from the ticket's DOTT project (overview.product_env →
+# WORKTREE_PRODUCT); a worktree made by hand has none and gets the old behaviour.
+product="${WORKTREE_PRODUCT:-}"; product_note=""
+if (( rc == 0 )) && [[ -n "$product" && -f "$wt/package.json" ]]; then
+  case "$product" in engage) pscript="setup:eg" ;; jetstream) pscript="setup:jet" ;; *) pscript="" ;; esac
+  if [[ -n "$pscript" ]] && grep -q "\"$pscript\"" "$wt/package.json"; then
+    print "🛠️   pnpm $pscript  ($product: env sync + API build + migrations)\n"
+    if ( cd "$wt" && pnpm "$pscript" ); then product_note="$product: env synced, API built, migrated (pnpm $pscript)"
+    else prc=$?; rc=$prc; product_note="$product: pnpm $pscript FAILED (exit $prc) — run it by hand before any e2e-up"; fi
+  else
+    product_note="$product: no $pscript script in package.json — not set up"
+  fi
+fi
+
 # ── VERIFY, then leave a marker (2026-09-30) ─────────────────────────────────────────────────
 # Provisioning used to end on its own exit code and nothing else: nobody checked that what it
 # set up actually answers, and no file said "this worktree is provisioned, with these ports" —
@@ -92,6 +110,9 @@ if [[ -f pnpm-lock.yaml || -f yarn.lock || -f package-lock.json ]]; then
   if [[ -d "$wt/node_modules" ]]; then verify_notes+=("node_modules present")
   else verify_ok=0; verify_notes+=("node_modules missing"); fi
 fi
+if [[ -n "$product_note" ]]; then
+  verify_notes+=("$product_note"); [[ "$product_note" == *FAILED* ]] && verify_ok=0
+fi
 if [[ -d "$wt/apps" ]]; then
   env_n="$(find "$wt/apps" -maxdepth 2 \( -name '.env' -o -name '.env.*' \) ! -name '*example*' 2>/dev/null | wc -l | tr -d ' ')"
   (( env_n > 0 )) && verify_notes+=("$env_n env file(s) under apps/") || verify_notes+=("no env files under apps/ yet (product env sync not run)")
@@ -114,13 +135,14 @@ mkdir -p "$wt/.harness"
   print "main=$main"
   print "base_port=${base_port_used:-}"
   print "pg_port=${pg_port:-}"
+  print "product=${product:-}"
   print "setup_exit=$rc"
   print "verify=$(( verify_ok ))"
   for n in "${verify_notes[@]}"; do print "note=$n"; done
 } > "$wt/.harness/provisioned"
 
 print ""
-for n in "${verify_notes[@]}"; do print "   ✔ $n" | sed "s/✔ \(.*nothing listens.*\|.*missing.*\)/✘ \1/"; done
+for n in "${verify_notes[@]}"; do print "   ✔ $n" | sed "s/✔ \(.*nothing listens.*\|.*missing.*\|.*FAILED.*\)/✘ \1/"; done
 if (( rc == 0 && verify_ok )); then
   print "\n🎉 worktree ready: $wt"
   [[ -n "$base_port_used" ]] && print "   ports: base $base_port_used · pg $pg_port  (also in .harness/provisioned)"

@@ -20,6 +20,8 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 #                     layers; unset = the account's default from ~/.claude/settings.json
 #   WORKTREE_CLAUDE_EFFORT=<low|medium|high|xhigh|max>  start claude with `--effort`; unset =
 #                     the model's effortLevel from ~/.claude/settings.json
+#   WORKTREE_PRODUCT=<engage|jetstream>  handed to worktree-setup.sh, which then runs the
+#                     product's stage 2 (`pnpm setup:eg|jet`: env sync + API build + migrations)
 # Both stay EDITABLE on purpose: a branch name generated from a ticket title is a guess, and
 # it outlives the guess as a directory, a session name and a remote ref.
 branch_default=""; base_default=""
@@ -190,7 +192,7 @@ if [[ -n "$sid" ]]; then
   first=""
   [[ -n "${WORKTREE_FIRST_PROMPT:-}" ]] && first=" '${WORKTREE_FIRST_PROMPT//\'/}'"
   model="${WORKTREE_CLAUDE_MODEL:+ --model ${WORKTREE_CLAUDE_MODEL}}${WORKTREE_CLAUDE_EFFORT:+ --effort ${WORKTREE_CLAUDE_EFFORT}}"
-  agtermctl session type "~/.config/harness/worktree-setup.sh '${branch}'; claude --name '${slug}' --remote-control '${rcname}'${model}${first}"$'\n' --target "$sid" 2>/dev/null
+  agtermctl session type "${WORKTREE_PRODUCT:+WORKTREE_PRODUCT=$WORKTREE_PRODUCT }~/.config/harness/worktree-setup.sh '${branch}'; claude --name '${slug}' --remote-control '${rcname}'${model}${first}"$'\n' --target "$sid" 2>/dev/null
   # PIN the conversation for the next launch, instead of relying on agterm's auto-capture.
   # Auto-capture records a pane's foreground only at a CLEAN quit; a reboot, a crash or a
   # power loss captures nothing, and every worktree session then comes back as a bare shell
