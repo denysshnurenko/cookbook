@@ -9,6 +9,7 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 # (the task picker does: it knows the ticket, this script knows how to make a worktree).
 #   --branch <name>   prefill the branch prompt
 #   --base <ref>      prefill the base prompt
+#   WORKTREE_NO_SELECT=1  create the session without selecting it (the watcher's auto-take)
 #   WORKTREE_YES=1    take both defaults without asking (a flow that opens several at once —
 #                     the epic's layers — already settled the names with the user)
 #   WORKTREE_SESSION_NAME=<name>  the sidebar name of the new session (default: the branch slug);
@@ -174,7 +175,9 @@ ws_found="$(agtermctl tree --json 2>/dev/null | jq -r --arg m "$root" --arg w "$
 [[ -n "$ws_found" ]] && ws="$ws_found"
 
 print "🪟 opening session + provisioning…"
-sid="$(agtermctl session new --json --workspace "$ws" --cwd "$wt" --name "${WORKTREE_SESSION_NAME:-$slug}" 2>/dev/null | jq -r '.result.id // empty')"
+# WORKTREE_NO_SELECT=1: the watcher's auto-take (2026-10-16) opens the session in the background —
+# a take he did not press must not pull him off what he is reading.
+sid="$(agtermctl session new --json --workspace "$ws" --cwd "$wt" --name "${WORKTREE_SESSION_NAME:-$slug}" ${WORKTREE_NO_SELECT:+--no-select} 2>/dev/null | jq -r '.result.id // empty')"
 if [[ -n "$sid" ]]; then
   # Into place at once: agterm appends a new session at the bottom of the workspace, and a
   # watcher that reorders once a minute left an epic's layers split in two for a tick.
