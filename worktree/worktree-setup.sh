@@ -44,10 +44,23 @@ print "   📂 path:   $wt"
 print "   🌿 branch: $branch"
 print "   🏠 main:   $main\n"
 
+# THE WORKSPACE NAME IS THE ONE THE WORKTREE WAS BORN WITH, never the current branch: it keys the
+# DB container, the Caddy fragment and every hostname (the repo's own setup says so). Passing the
+# branch here re-provisioned a renamed worktree into a SECOND workspace next to the live one
+# (2026-10-06: feat/dt1173 → fix/dt1173, a second DB container on another port, the token minted
+# into the old DB, ~25 min and a sed by hand). The state file the repo's setup writes remembers
+# the name; a re-run on a different branch keeps it and so reuses the same container and ports.
+workspace="$branch"
+saved_ws="$(sed -n 's/^WORKTREE_NAME=//p' "$wt/.hcc-workspace" 2>/dev/null | head -1)"
+if [[ -n "$saved_ws" && "$saved_ws" != "$branch" ]]; then
+  workspace="$saved_ws"
+  print "   🏷  workspace: $workspace  (kept from .hcc-workspace; the branch moved)"
+fi
+
 rc=0
 if [[ -f "$wt/infra/worktree/setup.sh" ]]; then
   print "🛠️   infra/worktree/setup.sh\n"
-  WORKTREE_NAME="$branch" WORKTREE_BASE_PORT="$base_port" zsh "$wt/infra/worktree/setup.sh" || rc=$?
+  WORKTREE_NAME="$workspace" WORKTREE_BASE_PORT="$base_port" zsh "$wt/infra/worktree/setup.sh" || rc=$?
 else
   print "🔗 minimal fallback: symlink real .env* + install deps\n"
   ( cd "$main" && find . -maxdepth 4 -type f -name '.env*' ! -iname '*example*' -not -path '*/node_modules/*' -print ) \
@@ -131,6 +144,7 @@ mkdir -p "$wt/.harness"
 {
   print "provisioned=$(date -u +%FT%TZ)"
   print "branch=$branch"
+  print "workspace=$workspace"
   print "head=$(git rev-parse --short HEAD 2>/dev/null)"
   print "main=$main"
   print "base_port=${base_port_used:-}"
