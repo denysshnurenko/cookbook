@@ -15,6 +15,12 @@ main="$(git -C "$wt" worktree list --porcelain | sed -n '1s/^worktree //p')"
 # volume were actually named, and teardown silently misses them (looks like
 # "already gone" instead of the name just being wrong).
 wt_slug="${wt:t}"
+# …and the DIRECTORY can drift from the workspace too: the repo's setup records the name it
+# provisioned in `.hcc-workspace`, and that is what the container, volume, Caddy fragment and
+# port claim carry (dt1173 2026-10-06: re-provisioned under a renamed branch, the live container
+# named after it). The recorded name wins; the directory slug is the fallback.
+ws="$(sed -n 's/^WORKTREE_NAME=//p' "$wt/.hcc-workspace" 2>/dev/null | head -1)"
+ws="${ws:-$wt_slug}"
 
 # the branch this worktree was ORIGINALLY created for (written by worktree-new.sh
 # into the worktree's git admin dir — read it BEFORE step 2 deletes that dir).
@@ -77,7 +83,7 @@ done
 # port claim — is named from WORKTREE_NAME, never from cwd.
 if [[ -f "$wt/infra/worktree/archive.sh" ]]; then
   print "\n🧹 infra/worktree/archive.sh"
-  archive_out="$( ( cd "$(mktemp -d)"; WORKTREE_NAME="$wt_slug" zsh "$wt/infra/worktree/archive.sh" ) 2>&1 )"
+  archive_out="$( ( cd "$(mktemp -d)"; WORKTREE_NAME="$ws" zsh "$wt/infra/worktree/archive.sh" ) 2>&1 )"
   archive_rc=$?
   [[ -n "$archive_out" ]] && print -r -- "$archive_out"
   (( archive_rc != 0 )) && { print "    💥 archive error — continuing"; had_warning=1; }
@@ -87,7 +93,7 @@ fi
 # 1b. generic fallback + belt-and-braces re-check: catches repos with no
 #     infra/worktree/archive.sh at all, and any container/volume archive.sh's
 #     exact-name match might have missed.
-slug_lc="$(print -r -- "$wt_slug" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g')"
+slug_lc="$(print -r -- "$ws" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g')"
 if [[ -n "$slug_lc" ]]; then
   for c in ${(f)"$(docker ps -aq --filter "name=db-${slug_lc}" 2>/dev/null)"}; do
     if [[ -n "$c" ]]; then

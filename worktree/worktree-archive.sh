@@ -22,6 +22,12 @@ wt="$(cd "$in" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null)" \
 main="$(git -C "$wt" worktree list --porcelain | sed -n '1s/^worktree //p')"
 branch="$(git -C "$wt" symbolic-ref --short -q HEAD || echo '?')"
 slug="${wt:t}"
+# The workspace to tear down is the one the repo's setup RECORDED, read from its state file —
+# the directory slug is only the fallback. A worktree re-provisioned under a renamed branch
+# (dt1173, 2026-10-06) had its live container named after that branch; naming the teardown
+# from the directory would have removed the dead one and leaked the live one.
+ws="$(sed -n 's/^WORKTREE_NAME=//p' "$wt/.hcc-workspace" 2>/dev/null | head -1)"
+ws="${ws:-$slug}"
 
 if [[ "$wt" == "$main" ]]; then
   print -u2 "🚫 this is the MAIN checkout, not a worktree — refusing to archive."; exit 1
@@ -66,13 +72,13 @@ done
 # in. Jobs are killed below from the preflight's filtered list instead. What
 # archive.sh tears down is named from WORKTREE_NAME, never from cwd.
 if [[ -f "$wt/infra/worktree/archive.sh" ]]; then
-  print -u2 "🧹 infra/worktree/archive.sh (WORKTREE_NAME=$slug)"
-  ( cd "$(mktemp -d)"; WORKTREE_NAME="$slug" zsh "$wt/infra/worktree/archive.sh" ) 1>&2 \
+  print -u2 "🧹 infra/worktree/archive.sh (WORKTREE_NAME=$ws)"
+  ( cd "$(mktemp -d)"; WORKTREE_NAME="$ws" zsh "$wt/infra/worktree/archive.sh" ) 1>&2 \
     || print -u2 "   ⚠️  archive.sh error — continuing with worktree removal"
 fi
 # 1b. generic docker fallback: catch any db-<slug> container archive.sh's exact-name
 #     match might have missed (e.g. base port shifted the derived name).
-slug_lc="$(print -r -- "$slug" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g')"
+slug_lc="$(print -r -- "$ws" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g')"
 if [[ -n "$slug_lc" ]]; then
   for c in ${(f)"$(docker ps -aq --filter "name=db-${slug_lc}" 2>/dev/null)"}; do
     [[ -n "$c" ]] && { print -u2 "🐳 docker rm -f (db-${slug_lc})"; docker rm -f "$c" 1>&2 || print -u2 "   ⚠️  docker rm failed for $c"; }
