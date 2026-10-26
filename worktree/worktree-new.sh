@@ -12,6 +12,8 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 #   WORKTREE_NO_SELECT=1  create the session without selecting it (the watcher's auto-take)
 #   WORKTREE_YES=1    take both defaults without asking (a flow that opens several at once —
 #                     the epic's layers — already settled the names with the user)
+#   WORKTREE_ST_NAME=<name>  the Solidtime task to create for a branch with no ticket number
+#                     (an epic's coordinator, `epic/<slug>`: «Epic: Email»)
 #   WORKTREE_SESSION_NAME=<name>  the sidebar name of the new session (default: the branch slug);
 #                     the worktree directory and the remote-control name keep the slug
 #   WORKTREE_SESSION_AFTER=<session id>  place the new session right after this one in the
@@ -102,7 +104,7 @@ gitdir="$(git -C "$wt" rev-parse --git-dir 2>/dev/null)"
 # §F semi-auto-create (design §C): ticket has NO solidtime task yet → offer to create
 # it right here, before provisioning (this overlay is interactive). Declining is safe:
 # the cmd+s picker offers the same creation later, with full project/title editing.
-prop="$("$HOME/.config/harness/solidtime/st" propose --cwd "$wt" --json 2>/dev/null)"
+prop="$("$HOME/.config/harness/solidtime/st" propose --cwd "$wt" ${WORKTREE_ST_NAME:+--name "$WORKTREE_ST_NAME"} --json 2>/dev/null)"
 if [[ "$(jq -r '.propose // false' <<<"$prop" 2>/dev/null)" == "true" ]]; then
   tname="$(jq -r '.name' <<<"$prop")"
   pname="$(jq -r '.projects[0].name' <<<"$prop")"
