@@ -130,8 +130,11 @@ fi
 
 # start the timer on the new ticket right away (worktree creation IS work on it) —
 # unless a sticky meeting-like task is running; the watcher keeps following focus after
+# A session created in the background (WORKTREE_NO_SELECT: the night autotake, epic layers) is
+# not work yet: nobody is looking at it. Its timer starts when he focuses it, through the watcher.
+# 2026-10-29: the 03:36 autotake started #2381 over an idle timer and logged 11h of nobody.
 tid="$(cat "$gitdir/harness-solidtime-task" 2>/dev/null)"
-if [[ -n "$tid" ]]; then
+if [[ -n "$tid" && -z "${WORKTREE_NO_SELECT:-}" ]]; then
   "$HOME/.config/harness/solidtime/st" start "$tid" --unless-sticky 2>/dev/null | tail -1
 fi
 
@@ -196,6 +199,11 @@ if [[ -n "$sid" ]]; then
   # the work in the fresh session, so the worktree does not sit waiting for someone to type.
   first=""
   [[ -n "${WORKTREE_FIRST_PROMPT:-}" ]] && first=" '${WORKTREE_FIRST_PROMPT//\'/}'"
+  # …and in a background session that prompt is not him: hook.sh must not count it as presence.
+  if [[ -n "$first" && -n "${WORKTREE_NO_SELECT:-}" ]]; then
+    mkdir -p "$HOME/.config/harness/state/dispatcher/first-prompt" 2>/dev/null
+    : > "$HOME/.config/harness/state/dispatcher/first-prompt/$sid" 2>/dev/null
+  fi
   model="${WORKTREE_CLAUDE_MODEL:+ --model ${WORKTREE_CLAUDE_MODEL}}${WORKTREE_CLAUDE_EFFORT:+ --effort ${WORKTREE_CLAUDE_EFFORT}}"
   agtermctl session type "${WORKTREE_PRODUCT:+WORKTREE_PRODUCT=$WORKTREE_PRODUCT }~/.config/harness/worktree-setup.sh '${branch}'; claude --name '${slug}' --remote-control '${rcname}'${model}${first}"$'\n' --target "$sid" 2>/dev/null
   # PIN the conversation for the next launch, instead of relying on agterm's auto-capture.
