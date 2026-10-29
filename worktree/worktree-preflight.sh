@@ -105,6 +105,9 @@ worktree_jobs() {
       # lines carry neither word above, so three of them blocked a clean teardown and a session
       # had to kill its own LSP by hand before ⌘⇧E 🧹 would go through.
       *mcp*|*language-server*|*tsserver*|*typingsInstaller*) continue ;;
+      # A fetch is seconds long and loses nothing (2026-10-29: the prompt hook's fetch in the
+      # worktree refused three Done teardowns; fetch.sh now runs in the main checkout anyway).
+      *"git fetch"*|*git-remote-http*|*index-pack*) continue ;;
       # A macOS app is never a worktree's job, only a process that inherited its cwd. OrbStack's
       # VM manager (`OrbStack Helper vmgr -handoff`) takes the cwd of whatever shell first woke
       # Docker — a worktree's `dev:up` on 2026-09-28 — and kept it, so it blocked that
@@ -144,6 +147,43 @@ sess="$(agtermctl tree --json 2>/dev/null | jq -r --arg w "$wt" --arg own "$own"
   | select($own == "" or (.id | ascii_downcase) != ($own | ascii_downcase))
   | .name' 2>/dev/null)"
 [[ -n "$sess" ]] && { print -u2 "🚫 an overlay is open in session '$sess' (revdiff? unsaved annotations)"; blocked=1 }
+
+# 5. The session switched to ANOTHER branch with work that is not in master (2026-10-29, #43: the
+# epic layers #1422–#1424 had switched to a branch already merged and the teardown flagged it
+# anyway). A drifted branch with nothing unique is deleted by worktree-rm without a word.
+orig="$(cat "$(git -C "$wt" rev-parse --git-dir 2>/dev/null)/harness-original-branch" 2>/dev/null)"
+base="$(git -C "$wt" rev-parse --verify -q origin/master >/dev/null 2>&1 && echo origin/master || echo origin/dev)"
+if [[ -n "$orig" && -n "$branch" && "$branch" != "$orig" && "$branch" != master && "$branch" != dev ]]; then
+  uniq="$(git -C "$wt" rev-list --count "$base..$branch" 2>/dev/null || echo 0)"
+  (( uniq > 0 )) && { print -u2 "🚫 the session switched to branch '$branch' (created for '$orig'): $uniq commit(s) not in $base"; blocked=1 }
+fi
+
+# 6. An open (unmerged) pull request from this worktree's branch — the work has not landed.
+# A failed lookup (no gh, no network) says so and does not block.
+bs=(${orig:-$branch} $branch)
+for b in ${(u)bs}; do
+  [[ -z "$b" || "$b" == master || "$b" == dev ]] && continue
+  if prs="$(cd "$wt" && gh pr list --head "$b" --state open --json number,title \
+              --jq '.[] | "#\(.number) \(.title)"' 2>/dev/null)"; then
+    for pr in ${(f)prs}; do print -u2 "🚫 open pull request from '$b': ${pr[1,70]}"; blocked=1; done
+  else
+    print -u2 "⚠️  could not check open pull requests for '$b' (gh failed) — not blocking"
+  fi
+done
+
+# 7. Open asks of this session (.harness/asks.md, asks.py): a question he has not answered goes with
+# the worktree. The watcher's own items (review:, pr:, dott:, slack:, draft: keys) close with their
+# source and are only listed.
+if [[ -f "$wt/.harness/asks.md" ]]; then
+  while IFS= read -r line; do
+    body="${${line#- \[ \] }%% <!--*}"
+    if [[ "$line" == *"<!-- key:"(review|pr|dott|slack|draft):* ]]; then
+      print -u2 "ℹ️  open watcher item (closes by itself): ${body[1,70]}"
+    else
+      print -u2 "🚫 open ask: ${body[1,80]}"; blocked=1
+    fi
+  done < <(grep -E '^- \[ \] ' "$wt/.harness/asks.md" 2>/dev/null)
+fi
 
 (( blocked )) && { print -u2 "   → nothing was touched. Re-run with --force to destroy anyway."; exit 1 }
 exit 0

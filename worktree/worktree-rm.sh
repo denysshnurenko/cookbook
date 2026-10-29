@@ -45,6 +45,10 @@ sid="${AGT_SESSION_ID:-}"
 force=0; auto=0
 for a in "$@"; do case "$a" in --force) force=1 ;; --yes) auto=1 ;; esac; done
 
+# an unattended run (--yes) keeps its transcript: the overlay closes with the session, and a warning
+# printed there was gone before anyone read it
+(( auto )) && { print "\n=== $(date '+%F %T') ${wt:t}"; } >> "$HOME/.config/harness/state/teardown.log" \
+  && exec > >(tee -a "$HOME/.config/harness/state/teardown.log") 2>&1
 print "🗑️   remove worktree"
 print "    📂 $wt"
 print "    🌿 $branch\n"
@@ -67,9 +71,11 @@ if (( ! force )); then
     # nobody started this by hand: say so, and keep the reason on screen until it is read
     if (( auto )); then
       tgt=(); [[ -n "$sid" ]] && tgt=(--target "$sid")
-      agtermctl notify "⛔ ${wt:t}: teardown refused — something would be lost, see the session" \
+      agtermctl notify "⛔ ${wt:t}: teardown refused — something would be lost" \
         --title "harness" "${tgt[@]}" 2>/dev/null || true
-      print "   press any key to close"; read -k 1 -s -r
+      # no key to wait for (2026-10-29, #43: 3125 sat 2 h on «press any key»): the agent path runs
+      # the same preflight first and gets this list as text; here the overlay just closes
+      sleep 4
     else
       sleep 6
     fi
@@ -146,19 +152,28 @@ if [[ "$orig_branch" != master && "$orig_branch" != dev && "$orig_branch" != "?"
   fi
 fi
 
-# HEAD drifted to a different branch after creation (e.g. checked out something
-# else to inspect it) — never auto-delete that one, it might be shared/important
-# (a release branch, someone else's work). Just flag it so it isn't forgotten.
-if [[ "$branch" != "$orig_branch" && "$branch" != "?" ]]; then
-  print "    ⚠️  worktree had drifted to branch '$branch' (created for '$orig_branch') — left untouched"
-  had_warning=1
+# HEAD drifted to a different branch after creation. With nothing of its own beyond master it is
+# just a local name (merged, or [gone] upstream): delete it locally, no warning — #1422–#1424 waited
+# on «something above needs a look» for exactly that (2026-10-29). With unique commits the preflight
+# refused already, so this is --force: leave it and say so. Never the remote, never master/dev.
+if [[ "$branch" != "$orig_branch" && "$branch" != "?" && "$branch" != master && "$branch" != dev ]]; then
+  base="$(git rev-parse --verify -q origin/master >/dev/null 2>&1 && echo origin/master || echo origin/dev)"
+  if (( $(git rev-list --count "$base..$branch" 2>/dev/null || echo 1) == 0 )); then
+    print "✂️  git branch -D $branch (drifted to, nothing beyond $base)"
+    git branch -D "$branch" >/dev/null 2>&1
+  else
+    print "    ⚠️  worktree had drifted to branch '$branch' (created for '$orig_branch') — left untouched"
+    had_warning=1
+  fi
 fi
 
-agtermctl notify "🗑️ removed worktree: $orig_branch$( (( had_warning )) && print -n ' — a warning waits in its session')" \
+# under --yes nobody reads the overlay, so the warning lines go into the banner itself
+warn_txt=""; (( had_warning )) && warn_txt=" — $( (( auto )) && print -n 'with a warning: state/teardown.log' || print -n 'a warning waits in its session')"
+agtermctl notify "🗑️ removed worktree: $orig_branch$warn_txt" \
   --title "harness" 2>/dev/null || true
 print "\n🎉 removed worktree + branch — closing session…"
 
-if (( had_warning )); then
+if (( had_warning && ! auto )); then
   print "\n⚠️   something above needs a look — press any key to close"
   read -k 1 -s -r
 else
@@ -180,8 +195,9 @@ if [[ -n "$sid" ]]; then
   if [[ -z "$win" ]]; then
     print "    (the session is already gone)"; sleep 1
   elif ! err="$(agtermctl session close --target "$sid" --window "$win" 2>&1)"; then
-    print "\n💥 could not close the session: $err\n   close it with cmd+w — press any key"
-    read -k 1 -s -r
+    print "\n💥 could not close the session: $err\n   close it with cmd+w"
+    agtermctl notify "💥 ${wt:t}: removed, but its session did not close — cmd+w it" --title "harness" 2>/dev/null || true
+    (( auto )) || { print "   press any key"; read -k 1 -s -r; }
   fi
 else
   print "    (no agterm session sits in this worktree — nothing to close)"; sleep 2
