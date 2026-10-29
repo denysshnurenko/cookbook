@@ -40,12 +40,19 @@ sid="${AGT_SESSION_ID:-}"
 [[ -z "$sid" ]] && sid="$(agtermctl tree --json 2>/dev/null \
   | jq -r --arg wt "$wt" '.result.tree.workspaces[].sessions[] | select(.cwd==$wt) | .id' | head -1)"
 
+# --yes: no confirmation prompt — for the automatic teardown of a finished ticket, where the
+# preflight below is the guard. --force skips the preflight. Either order.
+force=0; auto=0
+for a in "$@"; do case "$a" in --force) force=1 ;; --yes) auto=1 ;; esac; done
+
 print "🗑️   remove worktree"
 print "    📂 $wt"
 print "    🌿 $branch\n"
-print -n "⚠️   type 'yes' to confirm teardown: "
-read -r ans
-[[ "$ans" == "yes" ]] || { print "🙅 cancelled."; sleep 1; exit 1; }
+if (( ! auto )); then
+  print -n "⚠️   type 'yes' to confirm teardown: "
+  read -r ans
+  [[ "$ans" == "yes" ]] || { print "🙅 cancelled."; sleep 1; exit 1; }
+fi
 
 # had_warning gates a "press any key" pause before the auto session-close below —
 # the script closes its OWN hosting session/overlay at the end, so anything
@@ -54,9 +61,19 @@ read -r ans
 had_warning=0
 
 # 0. Preflight: refuse while something would be lost. Same script archive.sh uses — see there.
-if [[ "${1:-}" != --force ]]; then
+if (( ! force )); then
   "$HOME/.config/harness/worktree-preflight.sh" "$wt" || {
-    print "\n⛔ teardown cancelled — nothing was touched."; sleep 6; exit 1 }
+    print "\n⛔ teardown cancelled — nothing was touched."
+    # nobody started this by hand: say so, and keep the reason on screen until it is read
+    if (( auto )); then
+      tgt=(); [[ -n "$sid" ]] && tgt=(--target "$sid")
+      agtermctl notify "⛔ ${wt:t}: teardown refused — something would be lost, see the session" \
+        --title "harness" "${tgt[@]}" 2>/dev/null || true
+      print "   press any key to close"; read -k 1 -s -r
+    else
+      sleep 6
+    fi
+    exit 1 }
 fi
 
 # 0b. Stop the worktree's JOBS (dev servers, watchers) ourselves, before the DB
@@ -137,7 +154,8 @@ if [[ "$branch" != "$orig_branch" && "$branch" != "?" ]]; then
   had_warning=1
 fi
 
-agtermctl notify "🗑️ removed worktree: $orig_branch" --title "harness" 2>/dev/null || true
+agtermctl notify "🗑️ removed worktree: $orig_branch$( (( had_warning )) && print -n ' — a warning waits in its session')" \
+  --title "harness" 2>/dev/null || true
 print "\n🎉 removed worktree + branch — closing session…"
 
 if (( had_warning )); then
