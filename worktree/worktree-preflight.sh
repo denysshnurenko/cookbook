@@ -70,6 +70,8 @@ while [[ -n "$_p" && "$_p" != 0 && "$_p" != 1 ]]; do
   _p="$(ps -p "$_p" -o ppid= 2>/dev/null | tr -d ' ')"
 done
 
+_wt_pg="$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' ')"
+
 worktree_jobs() {
   lsof -d cwd -Fpn 2>/dev/null | awk -v w="${1:A}/" '
     /^p/ { pid = substr($0,2) }
@@ -78,6 +80,15 @@ worktree_jobs() {
     [[ -z "$pid" || -n "${_wt_self[$pid]:-}" ]] && continue
     args="$(ps -p "$pid" -o args= 2>/dev/null)"
     [[ -z "$args" ]] && continue
+    # A SIBLING IN THIS RUN'S OWN PIPELINE (2026-11-10: `… cleanup | tail -40` stopped on its own `tail`): its
+    # parent is one of our ancestors AND it is in our process group. The group keeps a fish `pnpm dev &` job of the
+    # calling shell blocking (its own group); an earlier tool call's job hangs off that call's shell, which is not our
+    # ancestor. The claude check is a backstop for claude's direct children the name list below may miss.
+    _pp="$(ps -p "$pid" -o ppid= 2>/dev/null | tr -d ' ')"
+    if [[ -n "$_pp" && -n "${_wt_self[$_pp]:-}" && "$(ps -p "$pid" -o pgid= 2>/dev/null | tr -d ' ')" == "$_wt_pg" ]]; then
+      # the executable's name, not its args: an agent's Bash shell is `zsh -c source ~/.claude/shell-snapshots/…`
+      [[ "$(ps -p "$_pp" -o comm= 2>/dev/null)" == (*/|)claude ]] || continue
+    fi
     case "$args" in
       *claude*|*/fish*|*zsh*|*bash*|*agtermctl*|*caffeinate*|*"sleep "*|*.claude/plugins/*) continue ;;
       # harness's own residents. window-tint.py is the one that bit: a SINGLETON
