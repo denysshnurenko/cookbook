@@ -16,6 +16,9 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 #                     (an epic's coordinator, `epic/<slug>`: «Epic: Email»)
 #   WORKTREE_SESSION_NAME=<name>  the sidebar name of the new session (default: the branch slug);
 #                     the worktree directory and the remote-control name keep the slug
+#   WORKTREE_SESSION_PARENT=<session id>  open the new session as an agterm COMPANION of this one
+#                     (`session new --parent`: nested under it, moves and closes with it; an epic's
+#                     layers under their coordinator). Takes no workspace; AFTER then orders siblings.
 #   WORKTREE_SESSION_AFTER=<session id>  place the new session right after this one in the
 #                     sidebar (an epic's layer under its coordinator); unset = wherever agterm
 #                     appends it, the watcher reorders later
@@ -182,7 +185,11 @@ ws_found="$(agtermctl tree --json 2>/dev/null | jq -r --arg m "$root" --arg w "$
 print "🪟 opening session + provisioning…"
 # WORKTREE_NO_SELECT=1: the watcher's auto-take (2026-10-16) opens the session in the background —
 # a take he did not press must not pull him off what he is reading.
-sid="$(agtermctl session new --json --workspace "$ws" --cwd "$wt" --name "${WORKTREE_SESSION_NAME:-$slug}" ${WORKTREE_NO_SELECT:+--no-select} 2>/dev/null | jq -r '.result.id // empty')"
+if [[ -n "${WORKTREE_SESSION_PARENT:-}" ]]; then
+  sid="$(agtermctl session new --json --parent "$WORKTREE_SESSION_PARENT" --cwd "$wt" --name "${WORKTREE_SESSION_NAME:-$slug}" ${WORKTREE_NO_SELECT:+--no-select} 2>/dev/null | jq -r '.result.id // empty')"
+fi
+# no parent asked, or an agterm too old for companions: an ordinary session in the workspace, as before
+[[ -z "${sid:-}" ]] && sid="$(agtermctl session new --json --workspace "$ws" --cwd "$wt" --name "${WORKTREE_SESSION_NAME:-$slug}" ${WORKTREE_NO_SELECT:+--no-select} 2>/dev/null | jq -r '.result.id // empty')"
 if [[ -n "$sid" ]]; then
   # Into place at once: agterm appends a new session at the bottom of the workspace, and a
   # watcher that reorders once a minute left an epic's layers split in two for a tick.
