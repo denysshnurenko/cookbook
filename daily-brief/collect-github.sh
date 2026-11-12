@@ -10,7 +10,7 @@
 #   collect-github.sh denys 2026-05-09 2026-05-11 10:00 23:59        # Fri→Sun, Fri from 10:00
 #
 # time_from defaults to 00:00, time_to to 23:59. Both apply at Kyiv local time
-# (UTC+3). Internally the script converts to UTC for API filtering.
+# (Europe/Kyiv: +2 in winter, +3 in summer). Internally the script converts to UTC for API filtering.
 #
 # Output: single JSON object to stdout.
 
@@ -25,8 +25,9 @@ TIME_TO="${5:-23:59}"
 to_utc_iso() {
   python3 -c "
 import sys
-from datetime import datetime, timezone, timedelta
-dt = datetime.strptime(sys.argv[1], '%Y-%m-%d %H:%M').replace(tzinfo=timezone(timedelta(hours=3)))
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+dt = datetime.strptime(sys.argv[1], '%Y-%m-%d %H:%M').replace(tzinfo=ZoneInfo('Europe/Kyiv'))
 print(dt.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))
 " "$1"
 }
