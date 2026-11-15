@@ -37,7 +37,7 @@ fi
 
 # the session sitting in this worktree (to close at the very end)
 sid="${AGT_SESSION_ID:-}"
-[[ -z "$sid" ]] && sid="$(agtermctl tree --json 2>/dev/null \
+[[ -z "$sid" ]] && sid="$({ [[ -f "$HOME/.config/harness/dispatcher/agterm_tree.py" ]] && /usr/bin/python3 "$HOME/.config/harness/dispatcher/agterm_tree.py" || agtermctl tree --json; } 2>/dev/null \
   | jq -r --arg wt "$wt" '.result.tree.workspaces[].sessions[] | select(.cwd==$wt) | .id' | head -1)"
 
 # --yes: no confirmation prompt — for the automatic teardown of a finished ticket, where the

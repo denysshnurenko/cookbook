@@ -172,15 +172,22 @@ fi
 # sessions for this checkout IS this repo's workspace, and it needs no upkeep when a repo is
 # added or a workspace renamed. A repo with no sessions anywhere has no right answer, and that
 # case falls through to `active` — the old behaviour, never a failure.
-ws="active"
-ws_found="$(agtermctl tree --json 2>/dev/null | jq -r --arg m "$root" --arg w "${root}.worktrees/" '
-  [ .result.tree.workspaces[]
-    | { id: .id,
-        n: ([ .sessions[]? | (.cwd // "")
-              | select(. == $m or startswith($m + "/") or startswith($w)) ] | length) }
-    | select(.n > 0) ]
-  | sort_by(-.n) | .[0].id // empty' 2>/dev/null)"
-[[ -n "$ws_found" ]] && ws="$ws_found"
+# EVERY OPEN WINDOW, not the frontmost one (2026-11-15: with another window in front after a dead battery, a
+# background take landed in that window): each window's tree is scored, the best workspace wins, and the session
+# is created in ITS window (`--window`), since `--workspace <id>` resolves only in the window it is given.
+ws="active"; win_args=()
+best_n=0
+for wid in $(agtermctl window list --json 2>/dev/null | jq -r '.result.windows[]? | select(.open) | .id'); do
+  hit="$(agtermctl tree --json --window "$wid" 2>/dev/null | jq -r --arg m "$root" --arg w "${root}.worktrees/" '
+    [ .result.tree.workspaces[]
+      | { id: .id,
+          n: ([ .sessions[]? | (.cwd // "")
+                | select(. == $m or startswith($m + "/") or startswith($w)) ] | length) }
+      | select(.n > 0) ]
+    | sort_by(-.n) | .[0] // empty | "\(.n) \(.id)"' 2>/dev/null)"
+  [[ -z "$hit" ]] && continue
+  if (( ${hit%% *} > best_n )); then best_n=${hit%% *}; ws=${hit#* }; win_args=(--window "$wid"); fi
+done
 
 print "🪟 opening session + provisioning…"
 # WORKTREE_NO_SELECT=1: the watcher's auto-take (2026-10-16) opens the session in the background —
@@ -189,7 +196,7 @@ if [[ -n "${WORKTREE_SESSION_PARENT:-}" ]]; then
   sid="$(agtermctl session new --json --parent "$WORKTREE_SESSION_PARENT" --cwd "$wt" --name "${WORKTREE_SESSION_NAME:-$slug}" ${WORKTREE_NO_SELECT:+--no-select} 2>/dev/null | jq -r '.result.id // empty')"
 fi
 # no parent asked, or an agterm too old for companions: an ordinary session in the workspace, as before
-[[ -z "${sid:-}" ]] && sid="$(agtermctl session new --json --workspace "$ws" --cwd "$wt" --name "${WORKTREE_SESSION_NAME:-$slug}" ${WORKTREE_NO_SELECT:+--no-select} 2>/dev/null | jq -r '.result.id // empty')"
+[[ -z "${sid:-}" ]] && sid="$(agtermctl session new --json --workspace "$ws" "${win_args[@]}" --cwd "$wt" --name "${WORKTREE_SESSION_NAME:-$slug}" ${WORKTREE_NO_SELECT:+--no-select} 2>/dev/null | jq -r '.result.id // empty')"
 if [[ -n "$sid" ]]; then
   # Into place at once: agterm appends a new session at the bottom of the workspace, and a
   # watcher that reorders once a minute left an epic's layers split in two for a tick.

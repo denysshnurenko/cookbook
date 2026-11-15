@@ -151,7 +151,7 @@ done
 # session still blocks.
 own=""
 [[ -n "${AGTERM_OVL_CMD:-}" ]] && own="${AGTERM_SESSION_ID:-}"
-sess="$(agtermctl tree --json 2>/dev/null | jq -r --arg w "$wt" --arg own "$own" '
+sess="$({ [[ -f "$HOME/.config/harness/dispatcher/agterm_tree.py" ]] && /usr/bin/python3 "$HOME/.config/harness/dispatcher/agterm_tree.py" || agtermctl tree --json; } 2>/dev/null | jq -r --arg w "$wt" --arg own "$own" '
   .result.tree.workspaces[].sessions[]
   | select(.cwd == $w)
   | select(.overlay != false and .overlay != null)
