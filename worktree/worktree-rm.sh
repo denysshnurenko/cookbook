@@ -19,7 +19,10 @@ wt_slug="${wt:t}"
 # provisioned in `.hcc-workspace`, and that is what the container, volume, Caddy fragment and
 # port claim carry (dt1173 2026-10-06: re-provisioned under a renamed branch, the live container
 # named after it). The recorded name wins; the directory slug is the fallback.
-ws="$(sed -n 's/^WORKTREE_NAME=//p' "$wt/.hcc-workspace" 2>/dev/null | head -1)"
+# the repo's workspace marker, whatever the repo calls it (`.<repo>-workspace`) — any
+# `.*-workspace` at the worktree root that carries WORKTREE_NAME= (2026-11-16: each repo names its own)
+ws_file="$(for f in "$wt"/.*-workspace(N); do grep -q "^WORKTREE_NAME=" "$f" && { print -r -- "$f"; break; }; done)"
+ws="$(sed -n 's/^WORKTREE_NAME=//p' "${ws_file:-/dev/null}" 2>/dev/null | head -1)"
 ws="${ws:-$wt_slug}"
 
 # the branch this worktree was ORIGINALLY created for (written by worktree-new.sh

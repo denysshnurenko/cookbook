@@ -26,7 +26,10 @@ slug="${wt:t}"
 # the directory slug is only the fallback. A worktree re-provisioned under a renamed branch
 # (dt1173, 2026-10-06) had its live container named after that branch; naming the teardown
 # from the directory would have removed the dead one and leaked the live one.
-ws="$(sed -n 's/^WORKTREE_NAME=//p' "$wt/.hcc-workspace" 2>/dev/null | head -1)"
+# the repo's workspace marker, whatever the repo calls it (`.<repo>-workspace`) — any
+# `.*-workspace` at the worktree root that carries WORKTREE_NAME= (2026-11-16: each repo names its own)
+ws_file="$(for f in "$wt"/.*-workspace(N); do grep -q "^WORKTREE_NAME=" "$f" && { print -r -- "$f"; break; }; done)"
+ws="$(sed -n 's/^WORKTREE_NAME=//p' "${ws_file:-/dev/null}" 2>/dev/null | head -1)"
 ws="${ws:-$slug}"
 
 if [[ "$wt" == "$main" ]]; then

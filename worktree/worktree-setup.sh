@@ -51,10 +51,13 @@ print "   🏠 main:   $main\n"
 # into the old DB, ~25 min and a sed by hand). The state file the repo's setup writes remembers
 # the name; a re-run on a different branch keeps it and so reuses the same container and ports.
 workspace="$branch"
-saved_ws="$(sed -n 's/^WORKTREE_NAME=//p' "$wt/.hcc-workspace" 2>/dev/null | head -1)"
+# the repo's workspace marker, whatever the repo calls it (`.<repo>-workspace`) — any
+# `.*-workspace` at the worktree root that carries WORKTREE_NAME= (2026-11-16: each repo names its own)
+ws_file="$(for f in "$wt"/.*-workspace(N); do grep -q "^WORKTREE_NAME=" "$f" && { print -r -- "$f"; break; }; done)"
+saved_ws="$(sed -n 's/^WORKTREE_NAME=//p' "${ws_file:-/dev/null}" 2>/dev/null | head -1)"
 if [[ -n "$saved_ws" && "$saved_ws" != "$branch" ]]; then
   workspace="$saved_ws"
-  print "   🏷  workspace: $workspace  (kept from .hcc-workspace; the branch moved)"
+  print "   🏷  workspace: $workspace  (kept from ${ws_file:t}; the branch moved)"
 fi
 
 rc=0
@@ -106,7 +109,7 @@ fi
 verify_ok=1
 verify_notes=()
 base_port_used=""; pg_port=""
-ws_state="$wt/.hcc-workspace"
+ws_state="$(for f in "$wt"/.*-workspace(N); do grep -q "^WORKTREE_NAME=" "$f" && { print -r -- "$f"; break; }; done)"   # the same marker lookup as above
 if [[ -f "$ws_state" ]]; then
   base_port_used="$(sed -n 's/^WORKTREE_BASE_PORT=//p' "$ws_state" | head -1)"
   # offset 5 of the port block is the workspace's PostgreSQL (infra/worktree/setup.sh)
