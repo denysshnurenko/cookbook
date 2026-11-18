@@ -21,6 +21,8 @@ root="$(git rev-parse --show-toplevel 2>/dev/null)" \
   || { print -u2 "🚫 not a git repo — run this from inside the repo you want a worktree of"; exit 1; }
 cd "$root"
 
+caller_top="${root:t}"   # the checkout the caller stands in, before anchoring on the main one
+
 # anchor on the MAIN checkout (a worktree of a worktree is confusing)
 main="$(git worktree list --porcelain | sed -n '1s/^worktree //p')"
 [[ -n "$main" ]] && { root="$main"; cd "$root"; }
@@ -28,6 +30,26 @@ repo="${root:t}"
 current="$(git symbolic-ref --short -q HEAD || echo master)"
 
 slug="${branch//\//-}"
+
+# A WORKTREE AN AGENT SESSION MAKES BESIDE ITS OWN WORK IS TEMPORARY: a follow-up PR, a
+# chore, a scratch check. Made from inside an agterm session for a branch with no ticket id,
+# it is named tmp-<origin>-<slug>, origin = the caller's ticket (dt123), review (pr45) or
+# session name, so it says where it came from and the watcher may remove it once its PR is
+# merged. A ticket branch, an epic/ branch and HARNESS_WT_KEEP=1 keep the plain name.
+tmp_origin() {
+  if [[ "$caller_top" =~ '(dt|us)[-_]?([0-9]{2,})' ]]; then print -r -- "${match[1]}${match[2]}"; return; fi
+  if [[ "$caller_top" =~ '^review-pr-([0-9]+)$' ]]; then print -r -- "pr${match[1]}"; return; fi
+  local name
+  name="$(agtermctl tree --json --socket "${AGTERM_SOCKET:-}" 2>/dev/null \
+    | jq -r --arg id "${AGTERM_SESSION_ID:-}" '.. | objects | select(.id? == $id) | .name? // empty' 2>/dev/null | head -1)"
+  name="${${(L)name//[^[:alnum:]]##/-}#-}"; name="${name%-}"
+  print -r -- "${${name:-$caller_top}[1,24]%-}"
+}
+if [[ -n "${AGTERM_SESSION_ID:-}" && "${HARNESS_WT_KEEP:-}" != 1 && "$branch" != epic/* \
+      && ! "$branch" =~ '(dt|us)[-_]?[0-9]{2,}' && "$slug" != tmp-* ]]; then
+  slug="tmp-$(tmp_origin)-${slug}"
+  print -u2 "🧪 temporary worktree (no ticket in the branch): ${slug} — removed after its PR is merged; HARNESS_WT_KEEP=1 keeps the plain name"
+fi
 wt="${root:h}/${repo}.worktrees/${slug}"
 
 base="$base_in"
