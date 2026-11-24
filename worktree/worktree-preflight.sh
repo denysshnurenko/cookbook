@@ -196,5 +196,55 @@ if [[ -f "$wt/.harness/asks.md" ]]; then
   done < <(grep -E '^- \[ \] ' "$wt/.harness/asks.md" 2>/dev/null)
 fi
 
+# 8. A scheduled job (Claude Code's CronCreate) the session set and never deleted, still to fire: it lives in the
+# session's claude process, so the teardown that closes the session takes it along. A follow-up check planned for
+# 48 h later (error counts after a release) was lost this way. Read from the session transcripts of this path (last
+# 7 days): a one-shot whose fire time is after the transcript's last row, or a recurring one under its 7-day expiry.
+crons="$(/usr/bin/python3 -I - "$wt" <<'PY' 2>/dev/null
+import json, re, sys, time
+from datetime import datetime
+from pathlib import Path
+d = Path.home() / ".claude" / "projects" / re.sub(r"[^A-Za-z0-9]", "-", sys.argv[1])
+now = time.time()
+def ep(ts):
+    try:
+        return datetime.fromisoformat(str(ts).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return 0.0
+for f in d.glob("*.jsonl") if d.is_dir() else []:
+    if now - f.stat().st_mtime > 7 * 86400:
+        continue
+    made, res, gone, last = {}, {}, set(), 0.0
+    for line in f.open(encoding="utf-8", errors="replace"):
+        try:
+            r = json.loads(line)
+        except ValueError:
+            continue
+        t = ep(r.get("timestamp"))
+        last = max(last, t)
+        c = (r.get("message") or {}).get("content")
+        for b in c if isinstance(c, list) else []:
+            if not isinstance(b, dict):
+                continue
+            if b.get("type") == "tool_use" and b.get("name") == "CronCreate":
+                made[b.get("id")] = (t, b.get("input") or {})
+            elif b.get("type") == "tool_use" and b.get("name") == "CronDelete":
+                gone.add(str((b.get("input") or {}).get("id") or ""))
+            elif b.get("type") == "tool_result" and b.get("tool_use_id") in made and isinstance(r.get("toolUseResult"), dict):
+                res[b["tool_use_id"]] = r["toolUseResult"]
+    for k, (t, i) in made.items():
+        x = res.get(k) or {}
+        if not x.get("id") or str(x["id"]) in gone or x.get("durable") or i.get("durable"):   # durable survives
+            continue
+        due = now - t < 7 * 86400 if x.get("recurring", i.get("recurring", True)) \
+            else float(x.get("nextFireAt") or 0) / 1000 > last
+        if due:
+            print(f"{x.get('humanSchedule') or i.get('cron')}: {' '.join(str(i.get('prompt') or '').split())[:60]}")
+PY
+)"
+for c in ${(f)crons}; do
+  print -r -u2 "🚫 cron $c — goes away with the session: wait for it, move it into .harness/, or ask"; blocked=1
+done
+
 (( blocked )) && { print -u2 "   → nothing was touched. Re-run with --force to destroy anyway."; exit 1 }
 exit 0
