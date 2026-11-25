@@ -74,9 +74,11 @@ done
 # closes that session and, on the ⌘⌥⇧T path, the overlay the teardown itself runs
 # in. Jobs are killed below from the preflight's filtered list instead. What
 # archive.sh tears down is named from WORKTREE_NAME, never from cwd.
+# HCC_ARCHIVE_SKIP_PROCESS_SWEEP=1: the newer archive.sh refuses to run outside the workspace's own checkout
+# unless told the caller stopped the processes itself (we do, above); older ones ignore it.
 if [[ -f "$wt/infra/worktree/archive.sh" ]]; then
   print -u2 "🧹 infra/worktree/archive.sh (WORKTREE_NAME=$ws)"
-  ( cd "$(mktemp -d)"; WORKTREE_NAME="$ws" zsh "$wt/infra/worktree/archive.sh" ) 1>&2 \
+  ( cd "$(mktemp -d)"; WORKTREE_NAME="$ws" HCC_ARCHIVE_SKIP_PROCESS_SWEEP=1 zsh "$wt/infra/worktree/archive.sh" ) 1>&2 \
     || print -u2 "   ⚠️  archive.sh error — continuing with worktree removal"
 fi
 # 1b. generic docker fallback: catch any db-<slug> container archive.sh's exact-name

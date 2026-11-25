@@ -107,9 +107,11 @@ done
 # empty non-repo cwd gives it nothing to match, leaving the jobs to step 0b
 # above. Everything it actually tears down — container, volume, caddy fragment,
 # port claim — is named from WORKTREE_NAME, never from cwd.
+# HCC_ARCHIVE_SKIP_PROCESS_SWEEP=1: the newer archive.sh refuses to run outside the workspace's own checkout
+# unless told the caller stopped the processes itself (we do, above); older ones ignore it.
 if [[ -f "$wt/infra/worktree/archive.sh" ]]; then
   print "\n🧹 infra/worktree/archive.sh"
-  archive_out="$( ( cd "$(mktemp -d)"; WORKTREE_NAME="$ws" zsh "$wt/infra/worktree/archive.sh" ) 2>&1 )"
+  archive_out="$( ( cd "$(mktemp -d)"; WORKTREE_NAME="$ws" HCC_ARCHIVE_SKIP_PROCESS_SWEEP=1 zsh "$wt/infra/worktree/archive.sh" ) 2>&1 )"
   archive_rc=$?
   [[ -n "$archive_out" ]] && print -r -- "$archive_out"
   (( archive_rc != 0 )) && { print "    💥 archive error — continuing"; had_warning=1; }
