@@ -39,10 +39,11 @@ slug="${branch//\//-}"
 tmp_origin() {
   if [[ "$caller_top" =~ '(dt|us)[-_]?([0-9]{2,})' ]]; then print -r -- "${match[1]}${match[2]}"; return; fi
   if [[ "$caller_top" =~ '^review-pr-([0-9]+)$' ]]; then print -r -- "pr${match[1]}"; return; fi
-  local name
+  setopt localoptions extendedglob   # `##` below is an extended-glob repeat; without it nothing was replaced, and
+  local name                         # a session name with `[ ]` made a path that broke an ORM migrations glob (11-25)
   name="$(agtermctl tree --json --socket "${AGTERM_SOCKET:-}" 2>/dev/null \
     | jq -r --arg id "${AGTERM_SESSION_ID:-}" '.. | objects | select(.id? == $id) | .name? // empty' 2>/dev/null | head -1)"
-  name="${${(L)name//[^[:alnum:]]##/-}#-}"; name="${name%-}"
+  name="${${(L)name//[^a-z0-9]##/-}#-}"; name="${name%-}"     # only [a-z0-9-]: a path is a glob somewhere
   print -r -- "${${name:-$caller_top}[1,24]%-}"
 }
 if [[ -n "${AGTERM_SESSION_ID:-}" && "${HARNESS_WT_KEEP:-}" != 1 && "$branch" != epic/* \
